@@ -92,16 +92,13 @@
   gap: 12px;
 }
 
-.brand-mark {
+.brand-mark-img {
   width: 48px;
   height: 48px;
-  border-radius: 14px;
-  background: linear-gradient(145deg, #115f84, #0ea06f);
-  color: #fff;
-  font-weight: 800;
-  display: grid;
-  place-items: center;
-  font-family: var(--font-heading);
+  border-radius: 12px;
+  object-fit: contain;
+  background: white;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
 }
 
 .brand-title {
@@ -131,11 +128,18 @@
   border-radius: 999px;
   border: 1px solid transparent;
   padding: 8px 14px;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.topnav a:hover {
+  background: #f0f8fc;
+  color: #123340;
 }
 
 .topnav a.active {
   background: #ebf7ff;
   border-color: #bdd6e4;
+  color: #0d3a4d;
 }
 
 .session-panel {
@@ -265,16 +269,33 @@
   font-family: inherit;
   font-weight: 700;
   cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.btn:active {
+  transform: scale(0.97);
 }
 
 .btn-primary {
   background: linear-gradient(140deg, #0d6e96, #0ca26f);
   color: #fff;
+  box-shadow: 0 4px 12px rgba(13, 110, 150, 0.2);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 6px 16px rgba(13, 110, 150, 0.3);
+  filter: brightness(1.05);
+  transform: translateY(-1px);
 }
 
 .btn-ghost {
   background: #eaf7ff;
   color: #0f4f69;
+}
+
+.btn-ghost:hover {
+  background: #dcf1ff;
+  color: #0a3d52;
 }
 
 .hero-panel h2 {
@@ -494,8 +515,9 @@
 
 .workflow-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 20px;
+  align-items: stretch;
 }
 
 .panel {
@@ -503,8 +525,11 @@
   border-radius: 14px;
   background: linear-gradient(180deg, #f8fdff, #ffffff);
   padding: 16px;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
+  min-width: 0;
+  height: 100%;
 }
 
 .panel h3 {
@@ -639,5 +664,138 @@
 
   .leaflet-container {
     height: 300px;
+  }
+}
+
+.clickable-card {
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.clickable-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 20px rgba(13, 110, 150, 0.12);
+  border-color: #a9d4e9;
+}
+
+.clickable-card:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.footer-note {
+  text-align: center;
+  padding: 30px 20px;
+  margin-top: 40px;
+  border-top: 1px solid rgba(13, 110, 150, 0.1);
+  background: linear-gradient(to top, rgba(235, 247, 255, 0.5), transparent);
+}
+
+.copyright-text {
+  font-weight: 600;
+  color: #1a3c4a;
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+}
+
+.brand-highlight {
+  color: #0c8a60;
+  font-family: var(--font-heading);
+}
+
+.tagline {
+  color: #5c7e8c;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+}
+
+/* Form Panel Styling */
+.form-panel {
+  padding: 24px;
+}
+
+.form-subtitle {
+  font-size: 0.85rem;
+  color: #5b7987;
+  margin-top: -8px;
+  margin-bottom: 20px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+}
+
+.form-field label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1b3d4d;
+  margin-bottom: 6px;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  border: 1px solid #c2d5e0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  background: #fcfdfe;
+  transition: all 0.2s;
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  outline: none;
+  border-color: #128965;
+  box-shadow: 0 0 0 3px rgba(18, 137, 101, 0.15);
+  background: #fff;
+}
+
+.form-group-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  min-width: 0;
+}
+
+.form-group-grid.triple {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.location-picker-group {
+  background: #f4f8fa;
+  border: 1px dashed #b1c8d6;
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  height: 100%;
+}
+
+.submit-spot-btn {
+  width: 100%;
+  margin-top: auto;
+  padding: 14px;
+  font-size: 1rem;
+}
+
+/* Main Form Desktop Layout */
+.main-form-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+@media (min-width: 992px) {
+  .workflow-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .panel.main-form {
+    grid-column: span 3;
+  }
+  .main-form-layout {
+    grid-template-columns: 1.2fr 0.8fr;
   }
 }

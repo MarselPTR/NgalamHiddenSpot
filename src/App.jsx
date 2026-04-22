@@ -1,14 +1,17 @@
 import { useMemo, useState } from 'react'
-import { BrowserRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom'
-import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
+import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
+import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from 'react-leaflet'
 import './App.css'
 
 const initialUsers = [
-  { id: 1, name: 'Admin NHS', role: 'admin', verified: true, password: 'admin123' },
-  { id: 2, name: 'Marsel', role: 'student', verified: true, password: 'marsel123' },
+  { id: 1, name: 'Admin NHS', email: 'admin@nhs.com', phone: '081234567890', role: 'admin', verified: true, password: 'admin123' },
+  { id: 2, name: 'Marsel', email: 'marsel@student.ub.ac.id', phone: '081298765432', role: 'student', verified: true, password: 'marsel123' },
   {
     id: 3,
     name: 'Merchant Mie Gacoan',
+    email: 'gacoan@merchant.com',
+    phone: '081211112222',
     role: 'merchant',
     verified: true,
     password: 'merchant123',
@@ -105,6 +108,8 @@ function App() {
   const [loginName, setLoginName] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginRole, setLoginRole] = useState('student')
+  const [registerEmail, setRegisterEmail] = useState('')
+  const [registerPhone, setRegisterPhone] = useState('')
 
   const [maxBudget, setMaxBudget] = useState(15000)
   const [minWifi, setMinWifi] = useState(20)
@@ -182,7 +187,11 @@ function App() {
     const cleanPassword = loginPassword.trim()
     if (!cleanName || !cleanPassword) return
 
-    const existing = users.find((user) => user.name.toLowerCase() === cleanName.toLowerCase())
+    const existing = users.find(
+      (user) =>
+        user.name.toLowerCase() === cleanName.toLowerCase() ||
+        (user.email && user.email.toLowerCase() === cleanName.toLowerCase())
+    )
 
     if (authMode === 'login') {
       if (!existing) {
@@ -196,17 +205,21 @@ function App() {
       setActiveUserId(existing.id)
       setLoginName('')
       setLoginPassword('')
+      setRegisterEmail('')
+      setRegisterPhone('')
       return
     }
 
     if (existing) {
-      window.alert('Nama akun sudah terdaftar. Silakan login.')
+      window.alert('Nama akun atau email sudah terdaftar. Silakan login.')
       return
     }
 
     const newUser = {
       id: Date.now(),
       name: cleanName,
+      email: registerEmail.trim(),
+      phone: registerPhone.trim(),
       role: loginRole,
       verified: loginRole === 'merchant',
       password: cleanPassword,
@@ -215,6 +228,8 @@ function App() {
     setActiveUserId(newUser.id)
     setLoginName('')
     setLoginPassword('')
+    setRegisterEmail('')
+    setRegisterPhone('')
   }
 
   const handleLogout = () => {
@@ -222,6 +237,8 @@ function App() {
     setAuthMode('login')
     setLoginName('')
     setLoginPassword('')
+    setRegisterEmail('')
+    setRegisterPhone('')
   }
 
   const handleSubmitSpot = (event) => {
@@ -415,11 +432,29 @@ function App() {
           <form className="gate-form" onSubmit={handleLogin}>
             <input
               type="text"
-              placeholder="Nama akun"
+              placeholder={authMode === 'login' ? "Username atau Email" : "Username"}
               value={loginName}
               onChange={(event) => setLoginName(event.target.value)}
               required
             />
+            {authMode === 'register' && (
+              <>
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={registerEmail}
+                  onChange={(event) => setRegisterEmail(event.target.value)}
+                  required
+                />
+                <input
+                  type="tel"
+                  placeholder="Nomor Telepon"
+                  value={registerPhone}
+                  onChange={(event) => setRegisterPhone(event.target.value)}
+                  required
+                />
+              </>
+            )}
             <input
               type="password"
               placeholder="Password"
@@ -498,7 +533,7 @@ function App() {
       <div className="page-shell">
         <header className="topbar">
           <div className="brand-wrap">
-            <div className="brand-mark">NHS</div>
+            <img src="/logo.png" alt="NHS Logo" className="brand-mark-img" />
             <div>
               <p className="brand-title">Ngalam Hidden Spot</p>
               <p className="brand-subtitle">Student-Verified Local Discovery</p>
@@ -527,30 +562,53 @@ function App() {
         </header>
 
         <main className="page-content">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/explore" element={<ExplorePage state={appState} />} />
-            <Route path="/contribute" element={<ContributePage state={appState} />} />
-            <Route path="/verify" element={<VerifyPage state={appState} />} />
-            <Route
-              path="/admin"
-              element={canUseAdminPanel ? <AdminPage state={appState} /> : <Navigate to="/" replace />}
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <AnimatedRoutes appState={appState} />
         </main>
 
         <footer className="footer-note">
-          <p>DP7 Build Track • Multi-page Professional MVP</p>
+          <p className="copyright-text">
+            &copy; 2026 <span className="brand-highlight">Ngalam Hidden Spot</span>. All Rights Reserved.
+          </p>
+          <p className="tagline">Exclusive Local Discovery for Malang Raya</p>
         </footer>
       </div>
     </BrowserRouter>
   )
 }
 
-function HomePage() {
+function AnimatedRoutes({ appState }) {
+  const location = useLocation()
+  const canUseAdminPanel = appState.permissions.canUseAdminPanel
+
   return (
-    <>
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<HomePage state={appState} />} />
+        <Route path="/explore" element={<ExplorePage state={appState} />} />
+        <Route path="/contribute" element={<ContributePage state={appState} />} />
+        <Route path="/verify" element={<VerifyPage state={appState} />} />
+        <Route
+          path="/admin"
+          element={canUseAdminPanel ? <AdminPage state={appState} /> : <Navigate to="/" replace />}
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AnimatePresence>
+  )
+}
+
+const pageVariants = {
+  initial: { opacity: 0, y: 15, scale: 0.99 },
+  animate: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, ease: "easeOut" } },
+  exit: { opacity: 0, y: -15, scale: 0.99, transition: { duration: 0.3, ease: "easeIn" } }
+}
+
+function HomePage({ state }) {
+  const navigate = useNavigate()
+  const canUseAdminPanel = state?.permissions?.canUseAdminPanel
+
+  return (
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
       <section className="hero-wrap">
         <div className="hero-copy">
           <p className="badge">Niche Product for Malang Raya</p>
@@ -568,37 +626,41 @@ function HomePage() {
             <li>Cakupan lokal fokus Malang Raya</li>
           </ul>
           <div className="mini-grid">
-            <article>
+            <article className="clickable-card" onClick={() => navigate('/explore')}>
               <p className="kpi">Explore</p>
               <span>Maps + filter mahasiswa</span>
             </article>
-            <article>
+            <article className="clickable-card" onClick={() => navigate('/contribute')}>
               <p className="kpi">Contribute</p>
               <span>Spot, review, report, merchant update</span>
             </article>
-            <article>
-              <p className="kpi">Admin</p>
-              <span>Moderasi spot, user, report</span>
-            </article>
+            {canUseAdminPanel && (
+              <article className="clickable-card" onClick={() => navigate('/admin')}>
+                <p className="kpi">Admin</p>
+                <span>Moderasi spot, user, report</span>
+              </article>
+            )}
           </div>
         </aside>
       </section>
 
       <section className="feature-strip">
-        <article>
+        <article className="clickable-card" onClick={() => navigate('/explore')}>
           <h3>Explore Page</h3>
           <p>Spot cards, review ringkas, dan live maps marker.</p>
         </article>
-        <article>
+        <article className="clickable-card" onClick={() => navigate('/contribute')}>
           <h3>Contribute Page</h3>
           <p>Semua form kontribusi dipisah agar alur user jelas.</p>
         </article>
-        <article>
-          <h3>Admin Page</h3>
-          <p>Hanya tampil untuk role admin, termasuk guard URL.</p>
-        </article>
+        {canUseAdminPanel && (
+          <article className="clickable-card" onClick={() => navigate('/admin')}>
+            <h3>Admin Page</h3>
+            <p>Hanya tampil untuk role admin, termasuk guard URL.</p>
+          </article>
+        )}
       </section>
-    </>
+    </motion.div>
   )
 }
 
@@ -607,7 +669,7 @@ function ExplorePage({ state }) {
   const { maxBudget, setMaxBudget, minWifi, setMinWifi, minSockets, setMinSockets } = filters
 
   return (
-    <>
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
       <section className="explore-block">
         <div className="explore-head">
           <h2>Explore Hidden Spots</h2>
@@ -722,7 +784,32 @@ function ExplorePage({ state }) {
           ))}
         </MapContainer>
       </section>
-    </>
+    </motion.div>
+  )
+}
+
+function LocationPickerMap({ lat, lng, onChange }) {
+  const position = [lat || -7.9666, lng || 112.6326]
+
+  function LocationMarker() {
+    useMapEvents({
+      click(e) {
+        onChange(e.latlng.lat, e.latlng.lng)
+      },
+    })
+    return <Marker position={position} />
+  }
+
+  return (
+    <div style={{ position: 'relative', height: '250px', width: '100%', borderRadius: '10px', overflow: 'hidden', border: '1px solid #b8cad3', marginBottom: '8px', zIndex: 1 }}>
+      <MapContainer center={position} zoom={13} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <LocationMarker />
+      </MapContainer>
+    </div>
   )
 }
 
@@ -742,216 +829,239 @@ function ContributePage({ state }) {
     selectedMerchantSpotId,
   } = forms
 
+  const currentMerchantSpot = controlledMerchantSpots.find((s) => s.id === selectedMerchantSpotId)
+
   return (
-    <section className="workflow-block">
+    <motion.section className="workflow-block" variants={pageVariants} initial="initial" animate="animate" exit="exit">
       <h2>Contribute Workflow</h2>
       <div className="workflow-grid">
-        <form onSubmit={actions.handleSubmitSpot} className="panel">
-          <h3>Tambah Hidden Spot</h3>
-          <p>Student wajib verified. Merchant dan Admin bisa submit langsung.</p>
-          <input
-            type="text"
-            placeholder="Nama spot"
-            value={newSpot.name}
-            onChange={(event) => setNewSpot((prev) => ({ ...prev, name: event.target.value }))}
-            required
-          />
-          <input
-            type="text"
-            placeholder="Area"
-            value={newSpot.area}
-            onChange={(event) => setNewSpot((prev) => ({ ...prev, area: event.target.value }))}
-            required
-          />
-          <div className="form-row-3">
-            <input
-              type="number"
-              placeholder="Budget"
-              value={newSpot.budget}
-              onChange={(event) => setNewSpot((prev) => ({ ...prev, budget: event.target.value }))}
-            />
-            <input
-              type="number"
-              placeholder="WiFi Mbps"
-              value={newSpot.wifiMbps}
-              onChange={(event) => setNewSpot((prev) => ({ ...prev, wifiMbps: event.target.value }))}
-            />
-            <input
-              type="number"
-              placeholder="Colokan"
-              value={newSpot.sockets}
-              onChange={(event) => setNewSpot((prev) => ({ ...prev, sockets: event.target.value }))}
-            />
+        <form onSubmit={actions.handleSubmitSpot} className="panel form-panel main-form">
+          <div className="form-header">
+            <h3>Tambah Hidden Spot</h3>
+            <p className="form-subtitle">Student wajib verified. Merchant dan Admin bisa submit langsung.</p>
           </div>
-          <input
-            type="text"
-            placeholder="Vibe"
-            value={newSpot.vibe}
-            onChange={(event) => setNewSpot((prev) => ({ ...prev, vibe: event.target.value }))}
-          />
-          <input
-            type="text"
-            placeholder="Link gambar spot"
-            value={newSpot.image}
-            onChange={(event) => setNewSpot((prev) => ({ ...prev, image: event.target.value }))}
-          />
-          <div className="form-row-2">
-            <input
-              type="number"
-              step="0.0001"
-              placeholder="Latitude"
-              value={newSpot.lat}
-              onChange={(event) => setNewSpot((prev) => ({ ...prev, lat: event.target.value }))}
-            />
-            <input
-              type="number"
-              step="0.0001"
-              placeholder="Longitude"
-              value={newSpot.lng}
-              onChange={(event) => setNewSpot((prev) => ({ ...prev, lng: event.target.value }))}
-            />
+          
+          <div className="main-form-layout">
+            <div className="main-form-fields">
+              <div className="form-group-grid">
+                <div className="form-field">
+                  <label>Nama Spot</label>
+                  <input type="text" placeholder="Contoh: Teras Tlogomas" value={newSpot.name} onChange={(e) => setNewSpot(p => ({...p, name: e.target.value}))} required />
+                </div>
+                <div className="form-field">
+                  <label>Area</label>
+                  <input type="text" placeholder="Contoh: Lowokwaru" value={newSpot.area} onChange={(e) => setNewSpot(p => ({...p, area: e.target.value}))} required />
+                </div>
+              </div>
+
+              <div className="form-group-grid triple">
+                <div className="form-field">
+                  <label>Budget (Rp)</label>
+                  <input type="number" placeholder="10000" value={newSpot.budget} onChange={(e) => setNewSpot(p => ({...p, budget: e.target.value}))} />
+                </div>
+                <div className="form-field">
+                  <label>WiFi (Mbps)</label>
+                  <input type="number" placeholder="20" value={newSpot.wifiMbps} onChange={(e) => setNewSpot(p => ({...p, wifiMbps: e.target.value}))} />
+                </div>
+                <div className="form-field">
+                  <label>Colokan</label>
+                  <input type="number" placeholder="4" value={newSpot.sockets} onChange={(e) => setNewSpot(p => ({...p, sockets: e.target.value}))} />
+                </div>
+              </div>
+
+              <div className="form-group-grid">
+                <div className="form-field">
+                  <label>Vibe Utama</label>
+                  <input type="text" placeholder="Contoh: WFC Friendly" value={newSpot.vibe} onChange={(e) => setNewSpot(p => ({...p, vibe: e.target.value}))} />
+                </div>
+                <div className="form-field">
+                  <label>Link Gambar</label>
+                  <input type="text" placeholder="URL gambar spot" value={newSpot.image} onChange={(e) => setNewSpot(p => ({...p, image: e.target.value}))} />
+                </div>
+              </div>
+
+              <div className="form-field">
+                <label>Rekomendasi Menu</label>
+                <input type="text" placeholder="Contoh: Kopi Susu, Kentang" value={newSpot.menu} onChange={(e) => setNewSpot(p => ({...p, menu: e.target.value}))} />
+              </div>
+              
+              <div className="form-group-grid">
+                <div className="form-field">
+                  <label>Fasilitas Tambahan</label>
+                  <input type="text" placeholder="Contoh: AC, Smoking Area" value={newSpot.facilities} onChange={(e) => setNewSpot(p => ({...p, facilities: e.target.value}))} />
+                </div>
+                <div className="form-field">
+                  <label>Jam Operasional</label>
+                  <input type="text" placeholder="Contoh: 09:00 - 22:00" value={newSpot.operationalHours} onChange={(e) => setNewSpot(p => ({...p, operationalHours: e.target.value}))} />
+                </div>
+              </div>
+            </div>
+
+            <div className="main-form-map">
+              <div className="location-picker-group">
+                <div className="form-field" style={{marginBottom: '8px'}}>
+                  <label>Titik Lokasi (Klik Peta)</label>
+                  <LocationPickerMap lat={Number(newSpot.lat)} lng={Number(newSpot.lng)} onChange={(lat, lng) => setNewSpot(p => ({...p, lat: lat.toFixed(6), lng: lng.toFixed(6)}))} />
+                </div>
+                <div className="form-group-grid">
+                  <div className="form-field">
+                    <label>Latitude</label>
+                    <input type="number" step="0.000001" value={newSpot.lat} onChange={(e) => setNewSpot(p => ({...p, lat: e.target.value}))} />
+                  </div>
+                  <div className="form-field">
+                    <label>Longitude</label>
+                    <input type="number" step="0.000001" value={newSpot.lng} onChange={(e) => setNewSpot(p => ({...p, lng: e.target.value}))} />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <input
-            type="text"
-            placeholder="Menu"
-            value={newSpot.menu}
-            onChange={(event) => setNewSpot((prev) => ({ ...prev, menu: event.target.value }))}
-          />
-          <input
-            type="text"
-            placeholder="Fasilitas"
-            value={newSpot.facilities}
-            onChange={(event) => setNewSpot((prev) => ({ ...prev, facilities: event.target.value }))}
-          />
-          <input
-            type="text"
-            placeholder="Jam operasional"
-            value={newSpot.operationalHours}
-            onChange={(event) =>
-              setNewSpot((prev) => ({ ...prev, operationalHours: event.target.value }))
-            }
-          />
-          <button type="submit" className="btn btn-primary" disabled={!permissions.canSubmitSpot}>
-            Submit Spot
+
+          <button type="submit" className="btn btn-primary submit-spot-btn" disabled={!permissions.canSubmitSpot}>
+            Submit Hidden Spot
           </button>
         </form>
 
-        <form onSubmit={actions.handleSubmitReview} className="panel">
+        <form onSubmit={actions.handleSubmitReview} className="panel form-panel">
           <h3>Post Verified Review</h3>
-          <p>Hanya akun verified atau admin.</p>
-          <select
-            value={selectedReviewSpotId ?? ''}
-            onChange={(event) =>
-              setReviewForm((prev) => ({ ...prev, spotId: Number(event.target.value) }))
-            }
-            disabled={approvedSpots.length === 0}
-          >
-            {approvedSpots.map((spot) => (
-              <option key={spot.id} value={spot.id}>
-                {spot.name}
-              </option>
-            ))}
-          </select>
-          <select
-            value={reviewForm.rating}
-            onChange={(event) =>
-              setReviewForm((prev) => ({ ...prev, rating: Number(event.target.value) }))
-            }
-          >
-            <option value="5">5</option>
-            <option value="4">4</option>
-            <option value="3">3</option>
-            <option value="2">2</option>
-            <option value="1">1</option>
-          </select>
-          <textarea
-            rows="3"
-            placeholder="Tulis review"
-            value={reviewForm.comment}
-            onChange={(event) => setReviewForm((prev) => ({ ...prev, comment: event.target.value }))}
-            required
-          />
-          <button type="submit" className="btn btn-primary" disabled={!permissions.canPostReview}>
+          <p className="form-subtitle">Hanya akun verified atau admin.</p>
+          <div className="form-field">
+            <label>Pilih Spot</label>
+            <select
+              value={selectedReviewSpotId ?? ''}
+              onChange={(event) => setReviewForm((prev) => ({ ...prev, spotId: Number(event.target.value) }))}
+              disabled={approvedSpots.length === 0}
+            >
+              {approvedSpots.map((spot) => (
+                <option key={spot.id} value={spot.id}>{spot.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-field">
+            <label>Rating (1-5)</label>
+            <select
+              value={reviewForm.rating}
+              onChange={(event) => setReviewForm((prev) => ({ ...prev, rating: Number(event.target.value) }))}
+            >
+              <option value="5">5 Bintang (Sangat Bagus)</option>
+              <option value="4">4 Bintang (Bagus)</option>
+              <option value="3">3 Bintang (Cukup)</option>
+              <option value="2">2 Bintang (Kurang)</option>
+              <option value="1">1 Bintang (Buruk)</option>
+            </select>
+          </div>
+          <div className="form-field">
+            <label>Ulasan Anda</label>
+            <textarea
+              rows="3"
+              placeholder="Ceritakan pengalaman Anda di sini..."
+              value={reviewForm.comment}
+              onChange={(event) => setReviewForm((prev) => ({ ...prev, comment: event.target.value }))}
+              required
+            />
+          </div>
+          <button type="submit" className="btn btn-primary submit-spot-btn" disabled={!permissions.canPostReview}>
             Kirim Review
           </button>
         </form>
 
-        <form onSubmit={actions.handleSubmitReport} className="panel">
-          <h3>Report Outdated Information</h3>
-          <p>Laporkan data usang untuk diproses admin.</p>
-          <select
-            value={selectedReportSpotId ?? ''}
-            onChange={(event) =>
-              setReportForm((prev) => ({ ...prev, spotId: Number(event.target.value) }))
-            }
-            disabled={approvedSpots.length === 0}
-          >
-            {approvedSpots.map((spot) => (
-              <option key={spot.id} value={spot.id}>
-                {spot.name}
-              </option>
-            ))}
-          </select>
-          <textarea
-            rows="3"
-            placeholder="Contoh: Jam buka berubah, tempat tutup permanen"
-            value={reportForm.reason}
-            onChange={(event) => setReportForm((prev) => ({ ...prev, reason: event.target.value }))}
-            required
-          />
-          <button type="submit" className="btn btn-primary" disabled={!permissions.canReport}>
+        <form onSubmit={actions.handleSubmitReport} className="panel form-panel">
+          <h3>Laporkan Data Usang</h3>
+          <p className="form-subtitle">Bantu kami menjaga akurasi informasi.</p>
+          <div className="form-field">
+            <label>Pilih Spot</label>
+            <select
+              value={selectedReportSpotId ?? ''}
+              onChange={(event) => setReportForm((prev) => ({ ...prev, spotId: Number(event.target.value) }))}
+              disabled={approvedSpots.length === 0}
+            >
+              {approvedSpots.map((spot) => (
+                <option key={spot.id} value={spot.id}>{spot.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-field">
+            <label>Alasan Laporan</label>
+            <textarea
+              rows="3"
+              placeholder="Contoh: Jam buka berubah, tempat tutup permanen"
+              value={reportForm.reason}
+              onChange={(event) => setReportForm((prev) => ({ ...prev, reason: event.target.value }))}
+              required
+            />
+          </div>
+          <button type="submit" className="btn btn-primary submit-spot-btn" disabled={!permissions.canReport}>
             Kirim Laporan
           </button>
         </form>
 
-        <form onSubmit={actions.handleMerchantUpdate} className="panel">
+        <form onSubmit={actions.handleMerchantUpdate} className="panel form-panel">
           <h3>Merchant Update Spot</h3>
-          <p>Merchant hanya bisa edit spot miliknya.</p>
-          <select
-            value={selectedMerchantSpotId ?? ''}
-            onChange={(event) =>
-              setMerchantEdit((prev) => ({ ...prev, spotId: Number(event.target.value) }))
-            }
-            disabled={controlledMerchantSpots.length === 0}
-          >
-            {controlledMerchantSpots.map((spot) => (
-              <option key={spot.id} value={spot.id}>
-                {spot.name}
-              </option>
-            ))}
-          </select>
-          <input
-            type="text"
-            placeholder="Menu terbaru"
-            value={merchantEdit.menu}
-            onChange={(event) => setMerchantEdit((prev) => ({ ...prev, menu: event.target.value }))}
-          />
-          <input
-            type="text"
-            placeholder="Fasilitas terbaru"
-            value={merchantEdit.facilities}
-            onChange={(event) =>
-              setMerchantEdit((prev) => ({ ...prev, facilities: event.target.value }))
-            }
-          />
-          <input
-            type="text"
-            placeholder="Jam operasional"
-            value={merchantEdit.operationalHours}
-            onChange={(event) =>
-              setMerchantEdit((prev) => ({ ...prev, operationalHours: event.target.value }))
-            }
-          />
+          <p className="form-subtitle">Merchant hanya bisa edit spot miliknya.</p>
+          <div className="form-field">
+            <label>Pilih Spot Anda</label>
+            <select
+              value={selectedMerchantSpotId ?? ''}
+              onChange={(event) => {
+                const spotId = Number(event.target.value)
+                const spotData = controlledMerchantSpots.find((s) => s.id === spotId)
+                if (spotData) {
+                  setMerchantEdit({
+                    spotId,
+                    menu: spotData.menu || '',
+                    facilities: spotData.facilities || '',
+                    operationalHours: spotData.operationalHours || '',
+                  })
+                } else {
+                  setMerchantEdit((prev) => ({ ...prev, spotId }))
+                }
+              }}
+              disabled={controlledMerchantSpots.length === 0}
+            >
+              {controlledMerchantSpots.map((spot) => (
+                <option key={spot.id} value={spot.id}>{spot.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-field">
+            <label>Update Menu</label>
+            <input
+              type="text"
+              placeholder={currentMerchantSpot?.menu || "Menu terbaru"}
+              value={merchantEdit.menu}
+              onChange={(event) => setMerchantEdit((prev) => ({ ...prev, menu: event.target.value }))}
+            />
+          </div>
+          <div className="form-group-grid">
+            <div className="form-field">
+              <label>Update Fasilitas</label>
+              <input
+                type="text"
+                placeholder={currentMerchantSpot?.facilities || "Fasilitas terbaru"}
+                value={merchantEdit.facilities}
+                onChange={(event) => setMerchantEdit((prev) => ({ ...prev, facilities: event.target.value }))}
+              />
+            </div>
+            <div className="form-field">
+              <label>Update Jam</label>
+              <input
+                type="text"
+                placeholder={currentMerchantSpot?.operationalHours || "Jam operasional terbaru"}
+                value={merchantEdit.operationalHours}
+                onChange={(event) => setMerchantEdit((prev) => ({ ...prev, operationalHours: event.target.value }))}
+              />
+            </div>
+          </div>
           <button
             type="submit"
-            className="btn btn-primary"
+            className="btn btn-primary submit-spot-btn"
             disabled={!permissions.canUseMerchantPanel || controlledMerchantSpots.length === 0}
           >
             Simpan Update
           </button>
         </form>
       </div>
-    </section>
+    </motion.section>
   )
 }
 
@@ -963,7 +1073,7 @@ function VerifyPage({ state }) {
   )
 
   return (
-    <section className="verification-flow">
+    <motion.section className="verification-flow" variants={pageVariants} initial="initial" animate="animate" exit="exit">
       <h2>Verifikasi Identitas</h2>
       <div className="flow-grid">
         <article>
@@ -1020,7 +1130,7 @@ function VerifyPage({ state }) {
           <p>Belum ada request verifikasi.</p>
         )}
       </article>
-    </section>
+    </motion.section>
   )
 }
 
@@ -1028,7 +1138,7 @@ function AdminPage({ state }) {
   const { pendingSpots, verificationRequests, reports, actions } = state
 
   return (
-    <section className="usecase-board">
+    <motion.section className="usecase-board" variants={pageVariants} initial="initial" animate="animate" exit="exit">
       <h2>Admin Moderation Console</h2>
       <div className="admin-grid">
         <article>
@@ -1119,7 +1229,7 @@ function AdminPage({ state }) {
           )}
         </article>
       </div>
-    </section>
+    </motion.section>
   )
 }
 
