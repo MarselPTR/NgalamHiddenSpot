@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react'
-import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams, Link } from 'react-router-dom'
 import { AnimatePresence, motion, useMotionValue, useMotionTemplate } from 'framer-motion'
 import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
@@ -558,20 +558,29 @@ function App() {
     <BrowserRouter>
       <div className="page-shell">
         <header className="ag-main-header">
-          <div className="brand-wrap">
-            <img src="/logo.png" alt="NHS Logo" className="brand-mark-img" />
-            <div className="brand-text-wrap">
-              <p className="brand-title">Ngalam Hidden Spot</p>
-              <p className="brand-subtitle">Student-Verified Local Discovery</p>
-            </div>
-          </div>
-          
           <nav className="ag-nav-links">
-            <NavLink to="/" end>Home</NavLink>
-            <NavLink to="/explore">Explore</NavLink>
-            <NavLink to="/contribute">Contribute</NavLink>
-            <NavLink to="/verify">Verify</NavLink>
-            {canUseAdminPanel ? <NavLink to="/admin">Admin</NavLink> : null}
+            <NavLink to="/" end>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+              <span>Home</span>
+            </NavLink>
+            <NavLink to="/explore">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <span>Explore</span>
+            </NavLink>
+            <NavLink to="/contribute">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20v-8m0 0V4m0 8h8m-8 0H4"></path></svg>
+              <span>Contribute</span>
+            </NavLink>
+            <NavLink to="/verify">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+              <span>Verify</span>
+            </NavLink>
+            {canUseAdminPanel ? (
+              <NavLink to="/admin">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                <span>Admin</span>
+              </NavLink>
+            ) : null}
           </nav>
           
           <div className="ag-user-actions">
@@ -704,6 +713,7 @@ function AnimatedRoutes({ appState }) {
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<HomePage state={appState} />} />
         <Route path="/explore" element={<ExplorePage state={appState} />} />
+        <Route path="/spot/:id" element={<SpotDetailPage state={appState} />} />
         <Route path="/contribute" element={<ContributePage state={appState} />} />
         <Route path="/verify" element={<VerifyPage state={appState} />} />
         <Route
@@ -767,10 +777,26 @@ function HomePage({ state }) {
       <ParticleCanvas />
       
       <div className="ag-hero-content">
-        <div className="ag-mini-badge">
-          <img src="/logo.png" alt="Logo" className="ag-badge-icon" />
-          <span>Ngalam Hidden Spot</span>
-        </div>
+        <motion.div 
+          className="brand-hero-identity"
+          initial={{ opacity: 0, scale: 0.8, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+        >
+          <motion.div 
+            className="brand-hero-logo-wrap"
+            animate={{ y: [0, -10, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <img src="/logo.png" alt="Logo" className="brand-hero-logo" />
+            <div className="logo-glow-effect"></div>
+          </motion.div>
+          <div className="brand-hero-text">
+            <span className="brand-hero-title">Ngalam Hidden Spot</span>
+            <div className="brand-hero-divider"></div>
+            <span className="brand-hero-tag">PREMIUM DISCOVERY</span>
+          </div>
+        </motion.div>
         
         <h1 className="ag-title">
           Experience liftoff with the next-gen<br/>
@@ -799,6 +825,8 @@ function HomePage({ state }) {
 function ExplorePage({ state }) {
   const { filteredSpots, filters, permissions, actions } = state
   const { maxBudget, setMaxBudget, minWifi, setMinWifi, minSockets, setMinSockets } = filters
+  const navigate = useNavigate()
+
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
@@ -862,48 +890,48 @@ function ExplorePage({ state }) {
         <motion.div className="spot-grid" layout>
           <AnimatePresence mode="popLayout">
           {filteredSpots.length > 0 ? (
-            filteredSpots.map((spot) => (
+            filteredSpots.map((spot, index) => (
               <motion.article className="spot-card" key={spot.id}
                 layout
-                initial={{ opacity: 0, scale: 0.8, y: 30 }}
+                initial={{ opacity: 0, scale: 0.85, y: 40 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.8, y: -20 }}
-                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                exit={{ opacity: 0, scale: 0.85, y: -20 }}
+                transition={{ type: "spring", stiffness: 260, damping: 24, delay: index * 0.05 }}
+                onClick={() => navigate(`/spot/${spot.id}`)}
+                style={{ cursor: 'pointer' }}
               >
-                <img className="spot-image" src={spot.image} alt={spot.name} />
-                <p className="pill">{spot.vibe}</p>
-                <h3>{spot.name}</h3>
-                <p>{spot.area}, Malang</p>
-                <ul>
-                  <li>Budget: Rp {spot.budget.toLocaleString('id-ID')}</li>
-                  <li>WiFi: {spot.wifiMbps} Mbps</li>
-                  <li>Colokan: {spot.sockets} titik</li>
-                  <li>Jam: {spot.operationalHours}</li>
-                </ul>
-
-                <details>
-                  <summary>Review ({spot.reviews.length})</summary>
-                  {spot.reviews.length > 0 ? (
-                    <ul className="review-list">
-                      {spot.reviews.map((review) => (
-                        <li key={review.id}>
-                          <strong>{review.userName}</strong> ({review.rating}/5): {review.comment}
-                          {permissions.canUseAdminPanel ? (
-                            <button
-                              type="button"
-                              className="inline-btn"
-                              onClick={() => actions.removeReview(spot.id, review.id)}
-                            >
-                              Hapus
-                            </button>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>Belum ada review.</p>
-                  )}
-                </details>
+                <div className="spot-card-image-wrap">
+                  <img className="spot-image" src={spot.image} alt={spot.name} />
+                  <div className="spot-card-overlay">
+                    <span className="overlay-cta">Lihat Detail →</span>
+                  </div>
+                  <span className="pill-float">{spot.vibe}</span>
+                </div>
+                <div className="spot-card-body">
+                  <h3>{spot.name}</h3>
+                  <p className="spot-card-area">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                    {spot.area}, Malang
+                  </p>
+                  <div className="spot-card-stats">
+                    <div className="stat-chip">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                      Rp {spot.budget.toLocaleString('id-ID')}
+                    </div>
+                    <div className="stat-chip">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+                      {spot.wifiMbps} Mbps
+                    </div>
+                    <div className="stat-chip">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22v-5"></path><path d="M9 8V2"></path><path d="M15 8V2"></path><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"></path></svg>
+                      {spot.sockets} titik
+                    </div>
+                  </div>
+                  <div className="spot-card-footer">
+                    <span className="review-badge">★ {spot.reviews.length > 0 ? (spot.reviews.reduce((a, r) => a + r.rating, 0) / spot.reviews.length).toFixed(1) : '—'}</span>
+                    <span className="review-count">{spot.reviews.length} review</span>
+                  </div>
+                </div>
               </motion.article>
             ))
           ) : (
@@ -938,16 +966,7 @@ function ExplorePage({ state }) {
                   <div className="tooltip-details">
                     <h4>{spot.name}</h4>
                     <p className="tooltip-price">Rp {spot.budget.toLocaleString('id-ID')}</p>
-                    <div className="tooltip-specs">
-                      <span className="spec-item">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
-                        {spot.wifiMbps} Mbps
-                      </span>
-                      <span className="spec-item">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22v-5"></path><path d="M9 8V2"></path><path d="M15 8V2"></path><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"></path></svg>
-                        {spot.sockets} titik
-                      </span>
-                    </div>
+                    <button className="tooltip-link-btn" onClick={(e) => { e.stopPropagation(); navigate(`/spot/${spot.id}`); }}>Lihat Detail</button>
                   </div>
                 </div>
               </Tooltip>
@@ -1343,15 +1362,128 @@ function VerifyPage({ state }) {
             </div>
           ) : (
             <div className="verify-empty">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
               <p>Belum ada request verifikasi.</p>
             </div>
           )}
         </SpotlightPanel>
       </div>
     </motion.section>
+
+
   )
 }
+
+function SpotDetailPage({ state }) {
+  const { id } = useParams()
+  const { approvedSpots } = state
+  const spot = approvedSpots.find((s) => String(s.id) === id)
+  const navigate = useNavigate()
+  const avgRating = spot && spot.reviews.length > 0
+    ? (spot.reviews.reduce((a, r) => a + r.rating, 0) / spot.reviews.length).toFixed(1)
+    : null
+
+  if (!spot) {
+    return (
+      <motion.div className="spot-detail-container" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+        <Link to="/explore" className="btn-back">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          Kembali ke Explore
+        </Link>
+        <div className="empty-state"><h2>Spot tidak ditemukan</h2><p>Maaf, spot yang Anda cari tidak tersedia.</p></div>
+      </motion.div>
+    )
+  }
+
+  return (
+    <motion.div className="spot-detail-container" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+      <Link to="/explore" className="btn-back">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        Kembali ke Explore
+      </Link>
+
+      <motion.div className="spot-detail-hero" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+        <img src={spot.image} alt={spot.name} className="detail-hero-img" />
+        <div className="detail-hero-overlay">
+          <h1>{spot.name}</h1>
+          <span className="detail-vibe-pill">{spot.vibe}</span>
+          <p className="detail-hero-location">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            {spot.area}, Malang
+          </p>
+          {avgRating && <div className="detail-hero-rating"><span className="hero-star">★</span> {avgRating} <span className="hero-review-count">({spot.reviews.length} review)</span></div>}
+        </div>
+      </motion.div>
+
+      <div className="spot-detail-grid">
+        <div className="detail-main-col">
+          <motion.div className="detail-quick-stats" initial="initial" animate="animate" variants={staggerContainer}>
+            {[
+              { label: 'Budget', value: `Rp ${spot.budget.toLocaleString('id-ID')}`, cls: 'budget-icon', icon: <><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></> },
+              { label: 'WiFi', value: `${spot.wifiMbps} Mbps`, cls: 'wifi-icon', icon: <><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></> },
+              { label: 'Colokan', value: `${spot.sockets} Titik`, cls: 'socket-icon', icon: <><path d="M12 22v-5"></path><path d="M9 8V2"></path><path d="M15 8V2"></path><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"></path></> },
+              { label: 'Jam Buka', value: spot.operationalHours, cls: 'time-icon', icon: <><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></> },
+            ].map((s, i) => (
+              <motion.div className="detail-stat-card" key={i} variants={staggerItem}>
+                <div className={`detail-stat-icon ${s.cls}`}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{s.icon}</svg></div>
+                <div className="detail-stat-text"><span className="detail-stat-label">{s.label}</span><span className="detail-stat-value">{s.value}</span></div>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          <SpotlightPanel className="detail-section-panel">
+            <h3 className="detail-section-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>Fasilitas Tersedia</h3>
+            <div className="facilities-list">{spot.facilities.split(',').map((f, i) => <span key={i} className="facility-chip">{f.trim()}</span>)}</div>
+          </SpotlightPanel>
+
+          <SpotlightPanel className="detail-section-panel">
+            <h3 className="detail-section-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"></path><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"></path><line x1="6" y1="2" x2="6" y2="4"></line><line x1="10" y1="2" x2="10" y2="4"></line><line x1="14" y1="2" x2="14" y2="4"></line></svg>Rekomendasi Menu</h3>
+            <div className="menu-recommendation"><h4>🍽️ Wajib Coba!</h4><p>{spot.menu}</p></div>
+          </SpotlightPanel>
+
+          <div className="detail-reviews-section">
+            <h3 className="detail-section-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>User Reviews ({spot.reviews.length})</h3>
+            <div className="detail-reviews-list">
+              {spot.reviews.length > 0 ? spot.reviews.map((r) => (
+                <motion.div key={r.id} className="detail-review-item" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
+                  <div className="review-avatar">{r.userName.charAt(0).toUpperCase()}</div>
+                  <div className="review-body">
+                    <div className="review-header"><span className="review-user">{r.userName}</span><span className="review-rating">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span></div>
+                    <p className="review-text">{r.comment}</p>
+                  </div>
+                </motion.div>
+              )) : (
+                <div className="review-empty-state">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#b0c4ce" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                  <p>Belum ada review. Jadilah yang pertama!</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="detail-side-col">
+          <div className="detail-sidebar-sticky">
+            <SpotlightPanel className="detail-map-panel" style={{ padding: 0 }}>
+              <MapContainer center={[spot.lat, spot.lng]} zoom={16} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+                <TileLayer attribution='&copy; OpenStreetMap &copy; CARTO' url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
+                <Marker position={[spot.lat, spot.lng]} icon={aestheticMarkerIcon}><Popup>{spot.name}</Popup></Marker>
+              </MapContainer>
+            </SpotlightPanel>
+            <SpotlightPanel className="detail-action-panel">
+              <div className="action-panel-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg></div>
+              <h3>Lapor Perubahan?</h3>
+              <p>Data tidak sesuai kondisi lapangan? Bantu komunitas dengan melaporkannya.</p>
+              <button className="detail-report-btn" onClick={() => navigate('/contribute')}>Laporkan Data Usang</button>
+            </SpotlightPanel>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+
 
 function AdminPage({ state }) {
   const { pendingSpots, verificationRequests, reports, actions } = state
