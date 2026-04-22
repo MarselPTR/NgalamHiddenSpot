@@ -581,6 +581,7 @@ function App() {
         </header>
 
         <main className="page-content">
+          <BackgroundDecor />
           <AnimatedRoutes appState={appState} />
         </main>
 
@@ -592,6 +593,16 @@ function App() {
         </footer>
       </div>
     </BrowserRouter>
+  )
+}
+
+function BackgroundDecor() {
+  return (
+    <div className="bg-decor-wrap" style={{ position: 'fixed', inset: 0, zIndex: -1, pointerEvents: 'none', overflow: 'hidden' }}>
+      <div className="floating-shape" style={{ width: '600px', height: '600px', background: 'rgba(187, 247, 208, 0.4)', top: '-10%', left: '-10%' }}></div>
+      <div className="floating-shape" style={{ width: '500px', height: '500px', background: 'rgba(186, 230, 253, 0.4)', bottom: '10%', right: '-5%', animationDelay: '-3s' }}></div>
+      <div className="floating-shape" style={{ width: '400px', height: '400px', background: 'rgba(254, 243, 199, 0.3)', top: '30%', right: '20%', animationDelay: '-7s' }}></div>
+    </div>
   )
 }
 
@@ -791,15 +802,20 @@ function ExplorePage({ state }) {
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
+      <header className="page-header">
+        <h1>Explore Hidden Spots</h1>
+        <p>Temukan spot berdasarkan kebutuhan WFC dan budget mahasiswa.</p>
+      </header>
+      
       <section className="explore-block">
-        <div className="explore-head">
-          <h2>Explore Hidden Spots</h2>
-          <p>Temukan spot berdasarkan kebutuhan WFC dan budget mahasiswa.</p>
-        </div>
 
         <div className="filter-controls">
-          <label>
-            Budget maksimum: Rp {maxBudget.toLocaleString('id-ID')}
+          <label className="filter-pill">
+            <div className="filter-label">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+              <span>Budget maks</span>
+            </div>
+            <div className="filter-value">Rp {maxBudget.toLocaleString('id-ID')}</div>
             <input
               type="range"
               min="10000"
@@ -810,8 +826,12 @@ function ExplorePage({ state }) {
             />
           </label>
 
-          <label>
-            Minimal WiFi: {minWifi} Mbps
+          <label className="filter-pill">
+            <div className="filter-label">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+              <span>Min WiFi</span>
+            </div>
+            <div className="filter-value">{minWifi} Mbps</div>
             <input
               type="range"
               min="10"
@@ -822,8 +842,12 @@ function ExplorePage({ state }) {
             />
           </label>
 
-          <label>
-            Minimal Colokan: {minSockets} titik
+          <label className="filter-pill">
+            <div className="filter-label">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22v-5"></path><path d="M9 8V2"></path><path d="M15 8V2"></path><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"></path></svg>
+              <span>Min Colokan</span>
+            </div>
+            <div className="filter-value">{minSockets} titik</div>
             <input
               type="range"
               min="2"
@@ -835,10 +859,17 @@ function ExplorePage({ state }) {
           </label>
         </div>
 
-        <motion.div className="spot-grid" variants={staggerContainer} initial="initial" animate="animate">
+        <motion.div className="spot-grid" layout>
+          <AnimatePresence mode="popLayout">
           {filteredSpots.length > 0 ? (
             filteredSpots.map((spot) => (
-              <motion.article className="spot-card" key={spot.id} variants={staggerItem}>
+              <motion.article className="spot-card" key={spot.id}
+                layout
+                initial={{ opacity: 0, scale: 0.8, y: 30 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.8, y: -20 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              >
                 <img className="spot-image" src={spot.image} alt={spot.name} />
                 <p className="pill">{spot.vibe}</p>
                 <h3>{spot.name}</h3>
@@ -876,20 +907,25 @@ function ExplorePage({ state }) {
               </motion.article>
             ))
           ) : (
-            <motion.article className="empty-state" variants={staggerItem}>
+            <motion.article className="empty-state" key="empty"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+            >
               <h3>Tidak ada spot sesuai filter</h3>
               <p>Kurangi syarat filter untuk melihat rekomendasi lain.</p>
             </motion.article>
           )}
+          </AnimatePresence>
         </motion.div>
       </section>
 
       <section className="map-block">
-        <div className="explore-head">
-          <h2>Live Maps</h2>
+        <header className="page-header" style={{ marginTop: '60px' }}>
+          <h1>Live Maps</h1>
           <p>Setiap spot approved langsung tampil sebagai marker di peta.</p>
-        </div>
-        <MapContainer center={[-7.9666, 112.6326]} zoom={13} scrollWheelZoom={false}>
+        </header>
+        <MapContainer center={[-7.9666, 112.6326]} zoom={13} scrollWheelZoom={true}>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
@@ -968,7 +1004,10 @@ function ContributePage({ state }) {
 
   return (
     <motion.section className="workflow-block" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-      <h2>Contribute Workflow</h2>
+      <header className="page-header">
+        <h1>Contribute Workflow</h1>
+        <p>Bantu komunitas dengan menambahkan spot baru atau memberikan review jujur.</p>
+      </header>
       <div className="workflow-grid">
         <SpotlightPanel as="form" onSubmit={actions.handleSubmitSpot} className="form-panel main-form">
           <div className="form-header">
@@ -1209,62 +1248,107 @@ function VerifyPage({ state }) {
 
   return (
     <motion.section className="verification-flow" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-      <h2>Verifikasi Identitas</h2>
-      <div className="flow-grid">
-        <article>
-          <h3>1. Pilih Dokumen</h3>
-          <p>KTM, KTP, SIM, atau Kartu Pelajar.</p>
-        </article>
-        <article>
-          <h3>2. Submit Form</h3>
-          <p>Masukkan nomor dokumen lalu kirim request verifikasi.</p>
-        </article>
-        <article>
-          <h3>3. Menunggu Admin</h3>
-          <p>Admin approve atau reject dari panel admin.</p>
-        </article>
+      <header className="page-header">
+        <h1>Verifikasi Identitas</h1>
+        <p>Dapatkan badge verified untuk menjamin integritas data komunitas.</p>
+      </header>
+
+      <motion.div className="verify-steps" variants={staggerContainer} initial="initial" animate="animate">
+        <motion.div className="verify-step-card" variants={staggerItem}>
+          <div className="step-number">1</div>
+          <div className="step-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          </div>
+          <h3>Pilih Dokumen</h3>
+          <p>KTM, KTP, SIM, atau Kartu Pelajar sebagai bukti identitas Anda.</p>
+        </motion.div>
+        <motion.div className="verify-step-card" variants={staggerItem}>
+          <div className="step-number">2</div>
+          <div className="step-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </div>
+          <h3>Submit Form</h3>
+          <p>Masukkan nomor dokumen lalu kirim request verifikasi ke sistem.</p>
+        </motion.div>
+        <motion.div className="verify-step-card" variants={staggerItem}>
+          <div className="step-number">3</div>
+          <div className="step-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          </div>
+          <h3>Menunggu Admin</h3>
+          <p>Admin akan me-review dan approve atau reject verifikasi Anda.</p>
+        </motion.div>
+      </motion.div>
+
+      <div className="verify-form-grid">
+        <SpotlightPanel as="form" onSubmit={actions.handleSubmitVerification} className="verify-panel verify-submit-panel">
+          <h3>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            Kirim Verifikasi
+          </h3>
+          <p className="form-subtitle">Lengkapi data berikut untuk memulai proses verifikasi akun Anda.</p>
+          <div className="verify-form-row">
+            <div className="form-field">
+              <label>Tipe Dokumen</label>
+              <select
+                value={verificationForm.docType}
+                onChange={(event) =>
+                  setVerificationForm((prev) => ({ ...prev, docType: event.target.value }))
+                }
+              >
+                <option value="KTM">KTM (Kartu Tanda Mahasiswa)</option>
+                <option value="KTP">KTP (Kartu Tanda Penduduk)</option>
+                <option value="SIM">SIM (Surat Izin Mengemudi)</option>
+                <option value="Kartu Pelajar">Kartu Pelajar</option>
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Nomor Dokumen</label>
+              <input
+                type="text"
+                placeholder="Masukkan nomor dokumen Anda"
+                value={verificationForm.docNumber}
+                onChange={(event) =>
+                  setVerificationForm((prev) => ({ ...prev, docNumber: event.target.value }))
+                }
+                required
+              />
+            </div>
+          </div>
+          <button type="submit" className="btn btn-primary submit-spot-btn" disabled={!currentUser}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+            Kirim Verifikasi
+          </button>
+        </SpotlightPanel>
+
+        <SpotlightPanel as="article" className="verify-history">
+          <h3>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            Riwayat Request
+          </h3>
+          {myRequests.length > 0 ? (
+            <div className="verify-history-list">
+              {myRequests.map((request) => (
+                <div key={request.id} className="verify-history-item">
+                  <div className="verify-history-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                  </div>
+                  <div className="verify-history-info">
+                    <strong>{request.docType}</strong>
+                    <span>{request.docNumber}</span>
+                  </div>
+                  <span className={`verify-status verify-status-${request.status}`}>{request.status}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="verify-empty">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+              <p>Belum ada request verifikasi.</p>
+            </div>
+          )}
+        </SpotlightPanel>
       </div>
-
-      <SpotlightPanel as="form" onSubmit={actions.handleSubmitVerification} className="verify-panel">
-        <select
-          value={verificationForm.docType}
-          onChange={(event) =>
-            setVerificationForm((prev) => ({ ...prev, docType: event.target.value }))
-          }
-        >
-          <option value="KTM">KTM</option>
-          <option value="KTP">KTP</option>
-          <option value="SIM">SIM</option>
-          <option value="Kartu Pelajar">Kartu Pelajar</option>
-        </select>
-        <input
-          type="text"
-          placeholder="Nomor dokumen"
-          value={verificationForm.docNumber}
-          onChange={(event) =>
-            setVerificationForm((prev) => ({ ...prev, docNumber: event.target.value }))
-          }
-          required
-        />
-        <button type="submit" className="btn btn-primary" disabled={!currentUser}>
-          Kirim Verifikasi
-        </button>
-      </SpotlightPanel>
-
-      <SpotlightPanel as="article" className="verify-history">
-        <h3>Riwayat Request Saya</h3>
-        {myRequests.length > 0 ? (
-          <ul>
-            {myRequests.map((request) => (
-              <li key={request.id}>
-                {request.docType} - {request.docNumber} ({request.status})
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>Belum ada request verifikasi.</p>
-        )}
-      </SpotlightPanel>
     </motion.section>
   )
 }
@@ -1274,7 +1358,10 @@ function AdminPage({ state }) {
 
   return (
     <motion.section className="usecase-board" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-      <h2>Admin Moderation Console</h2>
+      <header className="page-header">
+        <h1>Admin Moderation</h1>
+        <p>Panel kendali pusat untuk verifikasi spot, user, dan laporan data.</p>
+      </header>
       <motion.div className="admin-grid" variants={staggerContainer} initial="initial" animate="animate">
         <SpotlightPanel as={motion.article} variants={staggerItem}>
           <h3>Pending Spot</h3>
