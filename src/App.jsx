@@ -1,8 +1,29 @@
-import { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
-import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from 'react-leaflet'
+import { AnimatePresence, motion, useMotionValue, useMotionTemplate } from 'framer-motion'
+import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMapEvents } from 'react-leaflet'
+import L from 'leaflet'
 import './App.css'
+
+const markerSvg = `
+<svg width="36" height="46" viewBox="0 0 36 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M18 0C8.059 0 0 8.059 0 18C0 31.5 18 46 18 46C18 46 36 31.5 36 18C36 8.059 27.941 0 18 0Z" fill="#0c8a60"/>
+  <g transform="translate(9, 7) scale(0.75)" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17 8h1a4 4 0 1 1 0 8h-1"></path>
+    <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"></path>
+    <line x1="6" y1="2" x2="6" y2="4"></line>
+    <line x1="10" y1="2" x2="10" y2="4"></line>
+    <line x1="14" y1="2" x2="14" y2="4"></line>
+  </g>
+</svg>
+`
+
+const aestheticMarkerIcon = new L.divIcon({
+  className: 'custom-aesthetic-marker',
+  html: `<div class="marker-svg-wrap">${markerSvg}</div><div class="marker-shadow-pulse"></div>`,
+  iconSize: [36, 46],
+  iconAnchor: [18, 46]
+})
 
 const initialUsers = [
   { id: 1, name: 'Admin NHS', email: 'admin@nhs.com', phone: '081234567890', role: 'admin', verified: true, password: 'admin123' },
@@ -406,7 +427,12 @@ function App() {
     return (
       <section className="auth-gate">
         <article className="auth-card">
-          <p className="badge">Ngalam Hidden Spot</p>
+        <header className="brand-header">
+          <div className="logo">
+            <img src="/logo.png" alt="Ngalam Hidden Spot Logo" className="logo-img" />
+            <span className="logo-text">Ngalam Hidden Spot</span>
+          </div>
+        </header>
           <h1>Masuk ke Dashboard</h1>
           <p className="lead">
             Login terlebih dulu untuk mengakses fitur explore, kontribusi, dan moderasi.
@@ -531,34 +557,27 @@ function App() {
   return (
     <BrowserRouter>
       <div className="page-shell">
-        <header className="topbar">
+        <header className="ag-main-header">
           <div className="brand-wrap">
             <img src="/logo.png" alt="NHS Logo" className="brand-mark-img" />
-            <div>
+            <div className="brand-text-wrap">
               <p className="brand-title">Ngalam Hidden Spot</p>
               <p className="brand-subtitle">Student-Verified Local Discovery</p>
             </div>
           </div>
-          <div className="topbar-right">
-            <p className="active-user-inline">
-              {currentUser.name} ({currentUser.role})
-            </p>
-            <button type="button" className="btn btn-ghost" onClick={handleLogout}>
-              Logout
-            </button>
-          </div>
-        </header>
-
-        <header className="topbar nav-only">
-          <nav className="topnav">
-            <NavLink to="/" end>
-              Home
-            </NavLink>
+          
+          <nav className="ag-nav-links">
+            <NavLink to="/" end>Home</NavLink>
             <NavLink to="/explore">Explore</NavLink>
             <NavLink to="/contribute">Contribute</NavLink>
             <NavLink to="/verify">Verify</NavLink>
             {canUseAdminPanel ? <NavLink to="/admin">Admin</NavLink> : null}
           </nav>
+          
+          <div className="ag-user-actions">
+            <span className="ag-user-chip">{currentUser.name} <span className="chip-role">({currentUser.role})</span></span>
+            <button type="button" className="ag-btn-logout" onClick={handleLogout}>Logout</button>
+          </div>
         </header>
 
         <main className="page-content">
@@ -574,6 +593,95 @@ function App() {
       </div>
     </BrowserRouter>
   )
+}
+
+function ParticleCanvas() {
+  const canvasRef = React.useRef(null)
+
+  React.useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    let animationFrameId
+    
+    let width = canvas.width = canvas.offsetWidth
+    let height = canvas.height = canvas.offsetHeight
+
+    const particles = []
+    const colors = ['rgba(12, 138, 96, 0.6)', 'rgba(16, 185, 129, 0.4)', 'rgba(2, 132, 199, 0.5)', 'rgba(56, 189, 248, 0.3)', 'rgba(30, 41, 59, 0.2)']
+    
+    for (let i = 0; i < 250; i++) {
+      particles.push({
+        angle: Math.random() * Math.PI * 2,
+        radius: Math.random() * Math.max(width, height) * 0.8,
+        speed: (Math.random() * 0.001) + 0.0005,
+        length: Math.random() * 12 + 4,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        offset: Math.random() * 100
+      })
+    }
+
+    let mouseX = width / 2
+    let mouseY = height / 2
+    let targetMouseX = width / 2
+    let targetMouseY = height / 2
+
+    const handleMouseMove = (e) => {
+      const rect = canvas.getBoundingClientRect()
+      targetMouseX = e.clientX - rect.left
+      targetMouseY = e.clientY - rect.top
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+
+    const render = () => {
+      ctx.clearRect(0, 0, width, height)
+      
+      mouseX += (targetMouseX - mouseX) * 0.05
+      mouseY += (targetMouseY - mouseY) * 0.05
+
+      particles.forEach((p) => {
+        p.angle += p.speed
+        
+        // Parallax / mouse reaction
+        const dx = (mouseX - width/2) * (p.radius / width) * 0.3
+        const dy = (mouseY - height/2) * (p.radius / height) * 0.3
+        
+        const cx = width / 2 + dx
+        const cy = height / 2 + dy
+        
+        const x = cx + Math.cos(p.angle) * p.radius
+        const y = cy + Math.sin(p.angle) * p.radius
+        
+        const x2 = cx + Math.cos(p.angle - 0.01) * (p.radius - p.length)
+        const y2 = cy + Math.sin(p.angle - 0.01) * (p.radius - p.length)
+        
+        ctx.beginPath()
+        ctx.moveTo(x2, y2)
+        ctx.lineTo(x, y)
+        ctx.strokeStyle = p.color
+        ctx.lineWidth = 2.5
+        ctx.lineCap = 'round'
+        ctx.stroke()
+      })
+
+      animationFrameId = requestAnimationFrame(render)
+    }
+    render()
+
+    const handleResize = () => {
+      width = canvas.width = canvas.offsetWidth
+      height = canvas.height = canvas.offsetHeight
+    }
+    window.addEventListener('resize', handleResize)
+
+    return () => {
+      cancelAnimationFrame(animationFrameId)
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [])
+
+  return <canvas ref={canvasRef} className="ag-canvas" />
 }
 
 function AnimatedRoutes({ appState }) {
@@ -603,63 +711,76 @@ const pageVariants = {
   exit: { opacity: 0, y: -15, scale: 0.99, transition: { duration: 0.3, ease: "easeIn" } }
 }
 
-function HomePage({ state }) {
-  const navigate = useNavigate()
-  const canUseAdminPanel = state?.permissions?.canUseAdminPanel
+const staggerContainer = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { staggerChildren: 0.1 } }
+}
+
+const staggerItem = {
+  initial: { opacity: 0, y: 30, scale: 0.95 },
+  animate: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 100, damping: 15 } }
+}
+
+function SpotlightPanel({ children, className = "", as = "div", ...props }) {
+  const mouseX = useMotionValue(0)
+  const mouseY = useMotionValue(0)
+
+  function handleMouseMove({ currentTarget, clientX, clientY }) {
+    const { left, top } = currentTarget.getBoundingClientRect()
+    mouseX.set(clientX - left)
+    mouseY.set(clientY - top)
+  }
+
+  const Component = as
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit">
-      <section className="hero-wrap">
-        <div className="hero-copy">
-          <p className="badge">Niche Product for Malang Raya</p>
-          <h1>Platform rekomendasi hidden spot dengan kualitas data yang terjaga.</h1>
-          <p className="lead">
-            Website ini memisahkan alur eksplorasi, kontribusi komunitas, verifikasi identitas,
-            dan panel admin agar operasional terasa profesional seperti produk production-ready.
-          </p>
-        </div>
-        <aside className="hero-panel">
-          <h2>Aspek Kualitas DP6</h2>
-          <ul>
-            <li>UI ringan dan responsif</li>
-            <li>Integritas data lewat verified workflow</li>
-            <li>Cakupan lokal fokus Malang Raya</li>
-          </ul>
-          <div className="mini-grid">
-            <article className="clickable-card" onClick={() => navigate('/explore')}>
-              <p className="kpi">Explore</p>
-              <span>Maps + filter mahasiswa</span>
-            </article>
-            <article className="clickable-card" onClick={() => navigate('/contribute')}>
-              <p className="kpi">Contribute</p>
-              <span>Spot, review, report, merchant update</span>
-            </article>
-            {canUseAdminPanel && (
-              <article className="clickable-card" onClick={() => navigate('/admin')}>
-                <p className="kpi">Admin</p>
-                <span>Moderasi spot, user, report</span>
-              </article>
-            )}
-          </div>
-        </aside>
-      </section>
+    <Component className={`panel ${className}`} onMouseMove={handleMouseMove} {...props}>
+      <motion.div
+        className="spotlight-glow"
+        style={{
+          background: useMotionTemplate`radial-gradient(350px circle at ${mouseX}px ${mouseY}px, rgba(12, 138, 96, 0.12), transparent 80%)`,
+        }}
+      />
+      <div className="spotlight-content">
+        {children}
+      </div>
+    </Component>
+  )
+}
 
-      <section className="feature-strip">
-        <article className="clickable-card" onClick={() => navigate('/explore')}>
-          <h3>Explore Page</h3>
-          <p>Spot cards, review ringkas, dan live maps marker.</p>
-        </article>
-        <article className="clickable-card" onClick={() => navigate('/contribute')}>
-          <h3>Contribute Page</h3>
-          <p>Semua form kontribusi dipisah agar alur user jelas.</p>
-        </article>
-        {canUseAdminPanel && (
-          <article className="clickable-card" onClick={() => navigate('/admin')}>
-            <h3>Admin Page</h3>
-            <p>Hanya tampil untuk role admin, termasuk guard URL.</p>
-          </article>
-        )}
-      </section>
+function HomePage({ state }) {
+  const navigate = useNavigate()
+
+  return (
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="ag-hero-container">
+      <ParticleCanvas />
+      
+      <div className="ag-hero-content">
+        <div className="ag-mini-badge">
+          <img src="/logo.png" alt="Logo" className="ag-badge-icon" />
+          <span>Ngalam Hidden Spot</span>
+        </div>
+        
+        <h1 className="ag-title">
+          Experience liftoff with the next-gen<br/>
+          spot discovery platform
+        </h1>
+        
+        <p className="ag-subtitle">
+          Temukan kafe tersembunyi, ruang kerja estetik, dan spot WFC terbaik di Malang Raya.<br/>
+          Diverifikasi oleh mahasiswa, untuk mahasiswa.
+        </p>
+        
+        <div className="ag-actions">
+          <button className="ag-btn ag-btn-dark" onClick={() => navigate('/explore')}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon><line x1="9" y1="3" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="21"></line></svg>
+            Explore Maps
+          </button>
+          <button className="ag-btn ag-btn-light" onClick={() => navigate('/contribute')}>
+            Contribute Spot
+          </button>
+        </div>
+      </div>
     </motion.div>
   )
 }
@@ -714,10 +835,10 @@ function ExplorePage({ state }) {
           </label>
         </div>
 
-        <div className="spot-grid">
+        <motion.div className="spot-grid" variants={staggerContainer} initial="initial" animate="animate">
           {filteredSpots.length > 0 ? (
             filteredSpots.map((spot) => (
-              <article className="spot-card" key={spot.id}>
+              <motion.article className="spot-card" key={spot.id} variants={staggerItem}>
                 <img className="spot-image" src={spot.image} alt={spot.name} />
                 <p className="pill">{spot.vibe}</p>
                 <h3>{spot.name}</h3>
@@ -752,15 +873,15 @@ function ExplorePage({ state }) {
                     <p>Belum ada review.</p>
                   )}
                 </details>
-              </article>
+              </motion.article>
             ))
           ) : (
-            <article className="empty-state">
+            <motion.article className="empty-state" variants={staggerItem}>
               <h3>Tidak ada spot sesuai filter</h3>
               <p>Kurangi syarat filter untuk melihat rekomendasi lain.</p>
-            </article>
+            </motion.article>
           )}
-        </div>
+        </motion.div>
       </section>
 
       <section className="map-block">
@@ -770,16 +891,30 @@ function ExplorePage({ state }) {
         </div>
         <MapContainer center={[-7.9666, 112.6326]} zoom={13} scrollWheelZoom={false}>
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           />
           {filteredSpots.map((spot) => (
-            <Marker key={spot.id} position={[spot.lat, spot.lng]}>
-              <Popup>
-                <strong>{spot.name}</strong>
-                <br />
-                {spot.area} - Rp {spot.budget.toLocaleString('id-ID')}
-              </Popup>
+            <Marker key={spot.id} position={[spot.lat, spot.lng]} icon={aestheticMarkerIcon}>
+              <Tooltip direction="top" offset={[0, -10]} opacity={1} className="aesthetic-map-tooltip">
+                <div className="tooltip-content">
+                  <div className="tooltip-image" style={{ backgroundImage: `url(${spot.image})` }}></div>
+                  <div className="tooltip-details">
+                    <h4>{spot.name}</h4>
+                    <p className="tooltip-price">Rp {spot.budget.toLocaleString('id-ID')}</p>
+                    <div className="tooltip-specs">
+                      <span className="spec-item">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+                        {spot.wifiMbps} Mbps
+                      </span>
+                      <span className="spec-item">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22v-5"></path><path d="M9 8V2"></path><path d="M15 8V2"></path><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"></path></svg>
+                        {spot.sockets} titik
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </Tooltip>
             </Marker>
           ))}
         </MapContainer>
@@ -797,15 +932,15 @@ function LocationPickerMap({ lat, lng, onChange }) {
         onChange(e.latlng.lat, e.latlng.lng)
       },
     })
-    return <Marker position={position} />
+    return <Marker position={position} icon={aestheticMarkerIcon} />
   }
 
   return (
     <div style={{ position: 'relative', height: '250px', width: '100%', borderRadius: '10px', overflow: 'hidden', border: '1px solid #b8cad3', marginBottom: '8px', zIndex: 1 }}>
       <MapContainer center={position} zoom={13} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
         <LocationMarker />
       </MapContainer>
@@ -835,7 +970,7 @@ function ContributePage({ state }) {
     <motion.section className="workflow-block" variants={pageVariants} initial="initial" animate="animate" exit="exit">
       <h2>Contribute Workflow</h2>
       <div className="workflow-grid">
-        <form onSubmit={actions.handleSubmitSpot} className="panel form-panel main-form">
+        <SpotlightPanel as="form" onSubmit={actions.handleSubmitSpot} className="form-panel main-form">
           <div className="form-header">
             <h3>Tambah Hidden Spot</h3>
             <p className="form-subtitle">Student wajib verified. Merchant dan Admin bisa submit langsung.</p>
@@ -920,9 +1055,9 @@ function ContributePage({ state }) {
           <button type="submit" className="btn btn-primary submit-spot-btn" disabled={!permissions.canSubmitSpot}>
             Submit Hidden Spot
           </button>
-        </form>
+        </SpotlightPanel>
 
-        <form onSubmit={actions.handleSubmitReview} className="panel form-panel">
+        <SpotlightPanel as="form" onSubmit={actions.handleSubmitReview} className="form-panel">
           <h3>Post Verified Review</h3>
           <p className="form-subtitle">Hanya akun verified atau admin.</p>
           <div className="form-field">
@@ -963,9 +1098,9 @@ function ContributePage({ state }) {
           <button type="submit" className="btn btn-primary submit-spot-btn" disabled={!permissions.canPostReview}>
             Kirim Review
           </button>
-        </form>
+        </SpotlightPanel>
 
-        <form onSubmit={actions.handleSubmitReport} className="panel form-panel">
+        <SpotlightPanel as="form" onSubmit={actions.handleSubmitReport} className="form-panel">
           <h3>Laporkan Data Usang</h3>
           <p className="form-subtitle">Bantu kami menjaga akurasi informasi.</p>
           <div className="form-field">
@@ -993,9 +1128,9 @@ function ContributePage({ state }) {
           <button type="submit" className="btn btn-primary submit-spot-btn" disabled={!permissions.canReport}>
             Kirim Laporan
           </button>
-        </form>
+        </SpotlightPanel>
 
-        <form onSubmit={actions.handleMerchantUpdate} className="panel form-panel">
+        <SpotlightPanel as="form" onSubmit={actions.handleMerchantUpdate} className="form-panel">
           <h3>Merchant Update Spot</h3>
           <p className="form-subtitle">Merchant hanya bisa edit spot miliknya.</p>
           <div className="form-field">
@@ -1059,7 +1194,7 @@ function ContributePage({ state }) {
           >
             Simpan Update
           </button>
-        </form>
+        </SpotlightPanel>
       </div>
     </motion.section>
   )
@@ -1090,7 +1225,7 @@ function VerifyPage({ state }) {
         </article>
       </div>
 
-      <form onSubmit={actions.handleSubmitVerification} className="panel verify-panel">
+      <SpotlightPanel as="form" onSubmit={actions.handleSubmitVerification} className="verify-panel">
         <select
           value={verificationForm.docType}
           onChange={(event) =>
@@ -1114,9 +1249,9 @@ function VerifyPage({ state }) {
         <button type="submit" className="btn btn-primary" disabled={!currentUser}>
           Kirim Verifikasi
         </button>
-      </form>
+      </SpotlightPanel>
 
-      <article className="panel verify-history">
+      <SpotlightPanel as="article" className="verify-history">
         <h3>Riwayat Request Saya</h3>
         {myRequests.length > 0 ? (
           <ul>
@@ -1129,7 +1264,7 @@ function VerifyPage({ state }) {
         ) : (
           <p>Belum ada request verifikasi.</p>
         )}
-      </article>
+      </SpotlightPanel>
     </motion.section>
   )
 }
@@ -1140,8 +1275,8 @@ function AdminPage({ state }) {
   return (
     <motion.section className="usecase-board" variants={pageVariants} initial="initial" animate="animate" exit="exit">
       <h2>Admin Moderation Console</h2>
-      <div className="admin-grid">
-        <article>
+      <motion.div className="admin-grid" variants={staggerContainer} initial="initial" animate="animate">
+        <SpotlightPanel as={motion.article} variants={staggerItem}>
           <h3>Pending Spot</h3>
           {pendingSpots.length > 0 ? (
             <ul>
@@ -1166,9 +1301,9 @@ function AdminPage({ state }) {
           ) : (
             <p>Tidak ada pending spot.</p>
           )}
-        </article>
+        </SpotlightPanel>
 
-        <article>
+        <SpotlightPanel as={motion.article} variants={staggerItem}>
           <h3>Verifikasi User</h3>
           {verificationRequests.length > 0 ? (
             <ul>
@@ -1201,9 +1336,9 @@ function AdminPage({ state }) {
           ) : (
             <p>Belum ada request verifikasi.</p>
           )}
-        </article>
+        </SpotlightPanel>
 
-        <article>
+        <SpotlightPanel as={motion.article} variants={staggerItem}>
           <h3>Laporan Data Usang</h3>
           {reports.length > 0 ? (
             <ul>
@@ -1227,8 +1362,8 @@ function AdminPage({ state }) {
           ) : (
             <p>Belum ada laporan.</p>
           )}
-        </article>
-      </div>
+        </SpotlightPanel>
+      </motion.div>
     </motion.section>
   )
 }

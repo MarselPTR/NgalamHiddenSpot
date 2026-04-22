@@ -19,10 +19,12 @@ body,
 body {
   font-family: var(--font-body);
   background:
-    radial-gradient(circle at 12% 15%, #fff7e9 0%, transparent 35%),
-    radial-gradient(circle at 88% 24%, #e9fff9 0%, transparent 38%),
-    linear-gradient(180deg, #eff5f8 0%, #f8fbfc 100%);
+    radial-gradient(circle at 5% 10%, rgba(189, 233, 212, 0.5) 0%, transparent 40%),
+    radial-gradient(circle at 95% 30%, rgba(206, 226, 250, 0.5) 0%, transparent 45%),
+    radial-gradient(circle at 40% 80%, rgba(245, 233, 217, 0.5) 0%, transparent 50%),
+    linear-gradient(180deg, #edf3f7 0%, #f6fafe 100%);
   color: #183a4a;
+  background-attachment: fixed;
 }
 
 h1,
