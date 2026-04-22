@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams, Link } from 'react-router-dom'
-import { AnimatePresence, motion, useMotionValue, useMotionTemplate } from 'framer-motion'
+import { AnimatePresence, motion, useMotionValue, useMotionTemplate, useSpring, useTransform } from 'framer-motion'
 import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import './App.css'
@@ -117,6 +117,119 @@ const initialSpots = [
     reviews: [],
   },
 ]
+
+const AuthOrb = ({ index, x, y }) => {
+  const tx = useTransform(x, (val) => val * (0.05 + index * 0.02))
+  const ty = useTransform(y, (val) => val * (0.05 + index * 0.02))
+
+  return (
+    <motion.div
+      className="orb"
+      animate={{
+        scale: [1, 1.1, 0.9, 1],
+      }}
+      transition={{
+        duration: 10 + index * 2,
+        repeat: Infinity,
+        ease: "easeInOut",
+      }}
+      style={{
+        left: `${5 + index * 12}%`,
+        top: `${10 + (index % 4) * 20}%`,
+        background: index % 2 === 0
+          ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.6), rgba(12, 138, 96, 0.4))'
+          : 'linear-gradient(135deg, rgba(14, 165, 233, 0.5), rgba(2, 132, 199, 0.3))',
+        width: `${400 + index * 40}px`,
+        height: `${400 + index * 40}px`,
+        x: tx,
+        y: ty,
+      }}
+    />
+  )
+}
+
+const AuthPixel = ({ index, x }) => {
+  // Use stable random values
+  const randomLeft = useMemo(() => Math.random() * 100, [])
+  const randomDuration = useMemo(() => 5 + Math.random() * 5, [])
+  const randomDelay = useMemo(() => Math.random() * 5, [])
+  const randomWeight = useMemo(() => 0.1 + Math.random() * 0.2, [])
+  const randomSize = useMemo(() => 4 + Math.random() * 6, [])
+
+  const tx = useTransform(x, (val) => val * randomWeight)
+
+  return (
+    <motion.div
+      className="pixel"
+      initial={{ y: '110vh', opacity: 0 }}
+      animate={{ y: '-20vh', opacity: [0, 1, 0] }}
+      transition={{
+        duration: randomDuration,
+        repeat: Infinity,
+        delay: randomDelay,
+        ease: "linear",
+      }}
+      style={{
+        left: `${randomLeft}%`,
+        width: `${randomSize}px`,
+        height: `${randomSize}px`,
+        background: '#0c8a60',
+        x: tx,
+      }}
+    />
+  )
+}
+
+const AuthBackground = ({ mode }) => {
+  const mouseX = useMotionValue(0)
+  const mouseY = useMotionValue(0)
+
+  const springConfig = { damping: 25, stiffness: 150 }
+  const x = useSpring(mouseX, springConfig)
+  const y = useSpring(mouseY, springConfig)
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      mouseX.set(e.clientX - window.innerWidth / 2)
+      mouseY.set(e.clientY - window.innerHeight / 2)
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => window.removeEventListener('mousemove', handleMouseMove)
+  }, [mouseX, mouseY])
+
+  return (
+    <div className="auth-background-canvas">
+      <AnimatePresence mode="wait">
+        {mode === 'login' ? (
+          <motion.div
+            key="login-bg"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="bg-layer login-layer"
+          >
+            {[...Array(8)].map((_, i) => (
+              <AuthOrb key={i} index={i} x={x} y={y} />
+            ))}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="register-bg"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="bg-layer register-layer"
+          >
+            {[...Array(30)].map((_, i) => (
+              <AuthPixel key={i} index={i} x={x} />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <div className="bg-noise"></div>
+    </div>
+  )
+}
 
 function App() {
   const [users, setUsers] = useState(initialUsers)
@@ -374,11 +487,11 @@ function App() {
       prev.map((spot) =>
         spot.id === targetId
           ? {
-              ...spot,
-              menu: merchantEdit.menu || spot.menu,
-              facilities: merchantEdit.facilities || spot.facilities,
-              operationalHours: merchantEdit.operationalHours || spot.operationalHours,
-            }
+            ...spot,
+            menu: merchantEdit.menu || spot.menu,
+            facilities: merchantEdit.facilities || spot.facilities,
+            operationalHours: merchantEdit.operationalHours || spot.operationalHours,
+          }
           : spot,
       ),
     )
@@ -426,89 +539,140 @@ function App() {
   if (!currentUser) {
     return (
       <section className="auth-gate">
-        <article className="auth-card">
-        <header className="brand-header">
-          <div className="logo">
-            <img src="/logo.png" alt="Ngalam Hidden Spot Logo" className="logo-img" />
-            <span className="logo-text">Ngalam Hidden Spot</span>
-          </div>
-        </header>
-          <h1>Masuk ke Dashboard</h1>
-          <p className="lead">
-            Login terlebih dulu untuk mengakses fitur explore, kontribusi, dan moderasi.
-          </p>
+        <AuthBackground mode={authMode} />
+        <motion.div
+          className="auth-card-wrap"
+          initial={{ opacity: 0, y: 30, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        >
+          <SpotlightPanel className="auth-card">
+            <header className="auth-header">
+              <div className="auth-brand">
+                <img src="/logo.png" alt="Logo" className="auth-logo" />
+                <div className="auth-brand-text">
+                  <span className="auth-brand-title">Ngalam Hidden Spot</span>
+                  <span className="auth-brand-tag">PREMIUM ACCESS</span>
+                </div>
+              </div>
+              <h1>{authMode === 'login' ? 'Selamat Datang Kembali' : 'Bergabung Sekarang'}</h1>
+              <p className="auth-subtitle">
+                {authMode === 'login'
+                  ? 'Masuk untuk menjelajahi spot tersembunyi terbaik di Malang.'
+                  : 'Daftar dan mulai berkontribusi untuk komunitas mahasiswa Malang.'}
+              </p>
+            </header>
 
-          <div className="mode-switch">
-            <button
-              type="button"
-              className={`chip ${authMode === 'login' ? 'chip-active' : ''}`}
-              onClick={() => setAuthMode('login')}
-            >
-              Login
-            </button>
-            <button
-              type="button"
-              className={`chip ${authMode === 'register' ? 'chip-active' : ''}`}
-              onClick={() => setAuthMode('register')}
-            >
-              Register
-            </button>
-          </div>
+            <div className="auth-mode-toggle">
+              <button
+                type="button"
+                className={`auth-toggle-btn ${authMode === 'login' ? 'active' : ''}`}
+                onClick={() => setAuthMode('login')}
+              >
+                Login
+              </button>
+              <button
+                type="button"
+                className={`auth-toggle-btn ${authMode === 'register' ? 'active' : ''}`}
+                onClick={() => setAuthMode('register')}
+              >
+                Register
+              </button>
+              <div
+                className="auth-toggle-slider"
+                style={{ transform: `translateX(${authMode === 'login' ? '0' : '100%'})` }}
+              ></div>
+            </div>
 
-          <form className="gate-form" onSubmit={handleLogin}>
-            <input
-              type="text"
-              placeholder={authMode === 'login' ? "Username atau Email" : "Username"}
-              value={loginName}
-              onChange={(event) => setLoginName(event.target.value)}
-              required
-            />
-            {authMode === 'register' && (
-              <>
+            <form className="gate-form" onSubmit={handleLogin}>
+              <div className="input-group">
+                <label>Username / Email</label>
                 <input
-                  type="email"
-                  placeholder="Email"
-                  value={registerEmail}
-                  onChange={(event) => setRegisterEmail(event.target.value)}
+                  type="text"
+                  placeholder="name@student.ub.ac.id"
+                  value={loginName}
+                  onChange={(event) => setLoginName(event.target.value)}
                   required
                 />
+              </div>
+
+              <AnimatePresence mode="wait">
+                {authMode === 'register' && (
+                  <motion.div
+                    key="register-fields"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="register-extras"
+                  >
+                    <div className="input-group">
+                      <label>Email</label>
+                      <input
+                        type="email"
+                        placeholder="yourname@gmail.com"
+                        value={registerEmail}
+                        onChange={(event) => setRegisterEmail(event.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="input-group">
+                      <label>Nomor Telepon</label>
+                      <input
+                        type="tel"
+                        placeholder="0812xxxx"
+                        value={registerPhone}
+                        onChange={(event) => setRegisterPhone(event.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="input-group">
+                      <label>Pilih Peran</label>
+                      <select value={loginRole} onChange={(event) => setLoginRole(event.target.value)}>
+                        <option value="student">Malang Student</option>
+                        <option value="merchant">Merchant / Owner</option>
+                        <option value="general">General User</option>
+                      </select>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="input-group">
+                <label>Password</label>
                 <input
-                  type="tel"
-                  placeholder="Nomor Telepon"
-                  value={registerPhone}
-                  onChange={(event) => setRegisterPhone(event.target.value)}
+                  type="password"
+                  placeholder="••••••••"
+                  value={loginPassword}
+                  onChange={(event) => setLoginPassword(event.target.value)}
                   required
                 />
-              </>
-            )}
-            <input
-              type="password"
-              placeholder="Password"
-              value={loginPassword}
-              onChange={(event) => setLoginPassword(event.target.value)}
-              required
-            />
-            {authMode === 'register' ? (
-              <select value={loginRole} onChange={(event) => setLoginRole(event.target.value)}>
-                <option value="general">General User</option>
-                <option value="student">Malang Student</option>
-                <option value="merchant">Merchant</option>
-              </select>
-            ) : null}
-            <button type="submit" className="btn btn-primary">
-              {authMode === 'login' ? 'Masuk' : 'Daftar dan Masuk'}
-            </button>
-          </form>
+              </div>
 
-          <div className="demo-credentials">
-            <h3>Akun Demo</h3>
-            <ul>
-              <li>Admin NHS / admin123</li>
-              <li>Marsel / marsel123</li>
-              <li>Merchant Mie Gacoan / merchant123</li>
-            </ul>
-          </div>
-        </article>
+              <button type="submit" className="btn btn-primary auth-submit">
+                {authMode === 'login' ? (
+                  <>
+                    <span>Masuk ke Akun</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                  </>
+                ) : (
+                  <>
+                    <span>Buat Akun Baru</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="auth-footer">
+              <p>Coba gunakan akun demo:</p>
+              <div className="demo-chips">
+                <button type="button" onClick={() => { setLoginName('Admin NHS'); setLoginPassword('admin123') }}>Admin</button>
+                <button type="button" onClick={() => { setLoginName('Marsel'); setLoginPassword('marsel123') }}>Student</button>
+                <button type="button" onClick={() => { setLoginName('Merchant Mie Gacoan'); setLoginPassword('merchant123') }}>Merchant</button>
+              </div>
+            </div>
+          </SpotlightPanel>
+        </motion.div>
       </section>
     )
   }
@@ -582,7 +746,7 @@ function App() {
               </NavLink>
             ) : null}
           </nav>
-          
+
           <div className="ag-user-actions">
             <span className="ag-user-chip">{currentUser.name} <span className="chip-role">({currentUser.role})</span></span>
             <button type="button" className="ag-btn-logout" onClick={handleLogout}>Logout</button>
@@ -623,13 +787,13 @@ function ParticleCanvas() {
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     let animationFrameId
-    
+
     let width = canvas.width = canvas.offsetWidth
     let height = canvas.height = canvas.offsetHeight
 
     const particles = []
     const colors = ['rgba(12, 138, 96, 0.6)', 'rgba(16, 185, 129, 0.4)', 'rgba(2, 132, 199, 0.5)', 'rgba(56, 189, 248, 0.3)', 'rgba(30, 41, 59, 0.2)']
-    
+
     for (let i = 0; i < 250; i++) {
       particles.push({
         angle: Math.random() * Math.PI * 2,
@@ -655,26 +819,26 @@ function ParticleCanvas() {
 
     const render = () => {
       ctx.clearRect(0, 0, width, height)
-      
+
       mouseX += (targetMouseX - mouseX) * 0.05
       mouseY += (targetMouseY - mouseY) * 0.05
 
       particles.forEach((p) => {
         p.angle += p.speed
-        
+
         // Parallax / mouse reaction
-        const dx = (mouseX - width/2) * (p.radius / width) * 0.3
-        const dy = (mouseY - height/2) * (p.radius / height) * 0.3
-        
+        const dx = (mouseX - width / 2) * (p.radius / width) * 0.3
+        const dy = (mouseY - height / 2) * (p.radius / height) * 0.3
+
         const cx = width / 2 + dx
         const cy = height / 2 + dy
-        
+
         const x = cx + Math.cos(p.angle) * p.radius
         const y = cy + Math.sin(p.angle) * p.radius
-        
+
         const x2 = cx + Math.cos(p.angle - 0.01) * (p.radius - p.length)
         const y2 = cy + Math.sin(p.angle - 0.01) * (p.radius - p.length)
-        
+
         ctx.beginPath()
         ctx.moveTo(x2, y2)
         ctx.lineTo(x, y)
@@ -775,15 +939,15 @@ function HomePage({ state }) {
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="ag-hero-container">
       <ParticleCanvas />
-      
+
       <div className="ag-hero-content">
-        <motion.div 
+        <motion.div
           className="brand-hero-identity"
           initial={{ opacity: 0, scale: 0.8, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
         >
-          <motion.div 
+          <motion.div
             className="brand-hero-logo-wrap"
             animate={{ y: [0, -10, 0] }}
             transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
@@ -797,17 +961,17 @@ function HomePage({ state }) {
             <span className="brand-hero-tag">PREMIUM DISCOVERY</span>
           </div>
         </motion.div>
-        
+
         <h1 className="ag-title">
-          Experience liftoff with the next-gen<br/>
+          Experience liftoff with the next-gen<br />
           spot discovery platform
         </h1>
-        
+
         <p className="ag-subtitle">
-          Temukan kafe tersembunyi, ruang kerja estetik, dan spot WFC terbaik di Malang Raya.<br/>
+          Temukan kafe tersembunyi, ruang kerja estetik, dan spot WFC terbaik di Malang Raya.<br />
           Diverifikasi oleh mahasiswa, untuk mahasiswa.
         </p>
-        
+
         <div className="ag-actions">
           <button className="ag-btn ag-btn-dark" onClick={() => navigate('/explore')}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon><line x1="9" y1="3" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="21"></line></svg>
@@ -834,7 +998,7 @@ function ExplorePage({ state }) {
         <h1>Explore Hidden Spots</h1>
         <p>Temukan spot berdasarkan kebutuhan WFC dan budget mahasiswa.</p>
       </header>
-      
+
       <section className="explore-block">
 
         <div className="filter-controls">
@@ -889,61 +1053,61 @@ function ExplorePage({ state }) {
 
         <motion.div className="spot-grid" layout>
           <AnimatePresence mode="popLayout">
-          {filteredSpots.length > 0 ? (
-            filteredSpots.map((spot, index) => (
-              <motion.article className="spot-card" key={spot.id}
-                layout
-                initial={{ opacity: 0, scale: 0.85, y: 40 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.85, y: -20 }}
-                transition={{ type: "spring", stiffness: 260, damping: 24, delay: index * 0.05 }}
-                onClick={() => navigate(`/spot/${spot.id}`)}
-                style={{ cursor: 'pointer' }}
+            {filteredSpots.length > 0 ? (
+              filteredSpots.map((spot, index) => (
+                <motion.article className="spot-card" key={spot.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.85, y: 40 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.85, y: -20 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 24, delay: index * 0.05 }}
+                  onClick={() => navigate(`/spot/${spot.id}`)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div className="spot-card-image-wrap">
+                    <img className="spot-image" src={spot.image} alt={spot.name} />
+                    <div className="spot-card-overlay">
+                      <span className="overlay-cta">Lihat Detail →</span>
+                    </div>
+                    <span className="pill-float">{spot.vibe}</span>
+                  </div>
+                  <div className="spot-card-body">
+                    <h3>{spot.name}</h3>
+                    <p className="spot-card-area">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                      {spot.area}, Malang
+                    </p>
+                    <div className="spot-card-stats">
+                      <div className="stat-chip">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                        Rp {spot.budget.toLocaleString('id-ID')}
+                      </div>
+                      <div className="stat-chip">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+                        {spot.wifiMbps} Mbps
+                      </div>
+                      <div className="stat-chip">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22v-5"></path><path d="M9 8V2"></path><path d="M15 8V2"></path><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"></path></svg>
+                        {spot.sockets} titik
+                      </div>
+                    </div>
+                    <div className="spot-card-footer">
+                      <span className="review-badge">★ {spot.reviews.length > 0 ? (spot.reviews.reduce((a, r) => a + r.rating, 0) / spot.reviews.length).toFixed(1) : '—'}</span>
+                      <span className="review-count">{spot.reviews.length} review</span>
+                    </div>
+                  </div>
+                </motion.article>
+              ))
+            ) : (
+              <motion.article className="empty-state" key="empty"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
               >
-                <div className="spot-card-image-wrap">
-                  <img className="spot-image" src={spot.image} alt={spot.name} />
-                  <div className="spot-card-overlay">
-                    <span className="overlay-cta">Lihat Detail →</span>
-                  </div>
-                  <span className="pill-float">{spot.vibe}</span>
-                </div>
-                <div className="spot-card-body">
-                  <h3>{spot.name}</h3>
-                  <p className="spot-card-area">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                    {spot.area}, Malang
-                  </p>
-                  <div className="spot-card-stats">
-                    <div className="stat-chip">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-                      Rp {spot.budget.toLocaleString('id-ID')}
-                    </div>
-                    <div className="stat-chip">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
-                      {spot.wifiMbps} Mbps
-                    </div>
-                    <div className="stat-chip">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22v-5"></path><path d="M9 8V2"></path><path d="M15 8V2"></path><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"></path></svg>
-                      {spot.sockets} titik
-                    </div>
-                  </div>
-                  <div className="spot-card-footer">
-                    <span className="review-badge">★ {spot.reviews.length > 0 ? (spot.reviews.reduce((a, r) => a + r.rating, 0) / spot.reviews.length).toFixed(1) : '—'}</span>
-                    <span className="review-count">{spot.reviews.length} review</span>
-                  </div>
-                </div>
+                <h3>Tidak ada spot sesuai filter</h3>
+                <p>Kurangi syarat filter untuk melihat rekomendasi lain.</p>
               </motion.article>
-            ))
-          ) : (
-            <motion.article className="empty-state" key="empty"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-            >
-              <h3>Tidak ada spot sesuai filter</h3>
-              <p>Kurangi syarat filter untuk melihat rekomendasi lain.</p>
-            </motion.article>
-          )}
+            )}
           </AnimatePresence>
         </motion.div>
       </section>
@@ -1033,77 +1197,77 @@ function ContributePage({ state }) {
             <h3>Tambah Hidden Spot</h3>
             <p className="form-subtitle">Student wajib verified. Merchant dan Admin bisa submit langsung.</p>
           </div>
-          
+
           <div className="main-form-layout">
             <div className="main-form-fields">
               <div className="form-group-grid">
                 <div className="form-field">
                   <label>Nama Spot</label>
-                  <input type="text" placeholder="Contoh: Teras Tlogomas" value={newSpot.name} onChange={(e) => setNewSpot(p => ({...p, name: e.target.value}))} required />
+                  <input type="text" placeholder="Teras Tlogomas" value={newSpot.name} onChange={(e) => setNewSpot(p => ({ ...p, name: e.target.value }))} required />
                 </div>
                 <div className="form-field">
                   <label>Area</label>
-                  <input type="text" placeholder="Contoh: Lowokwaru" value={newSpot.area} onChange={(e) => setNewSpot(p => ({...p, area: e.target.value}))} required />
+                  <input type="text" placeholder="Lowokwaru" value={newSpot.area} onChange={(e) => setNewSpot(p => ({ ...p, area: e.target.value }))} required />
                 </div>
               </div>
 
               <div className="form-group-grid triple">
                 <div className="form-field">
                   <label>Budget (Rp)</label>
-                  <input type="number" placeholder="10000" value={newSpot.budget} onChange={(e) => setNewSpot(p => ({...p, budget: e.target.value}))} />
+                  <input type="number" placeholder="10000" value={newSpot.budget} onChange={(e) => setNewSpot(p => ({ ...p, budget: e.target.value }))} />
                 </div>
                 <div className="form-field">
                   <label>WiFi (Mbps)</label>
-                  <input type="number" placeholder="20" value={newSpot.wifiMbps} onChange={(e) => setNewSpot(p => ({...p, wifiMbps: e.target.value}))} />
+                  <input type="number" placeholder="20" value={newSpot.wifiMbps} onChange={(e) => setNewSpot(p => ({ ...p, wifiMbps: e.target.value }))} />
                 </div>
                 <div className="form-field">
                   <label>Colokan</label>
-                  <input type="number" placeholder="4" value={newSpot.sockets} onChange={(e) => setNewSpot(p => ({...p, sockets: e.target.value}))} />
+                  <input type="number" placeholder="4" value={newSpot.sockets} onChange={(e) => setNewSpot(p => ({ ...p, sockets: e.target.value }))} />
                 </div>
               </div>
 
               <div className="form-group-grid">
                 <div className="form-field">
                   <label>Vibe Utama</label>
-                  <input type="text" placeholder="Contoh: WFC Friendly" value={newSpot.vibe} onChange={(e) => setNewSpot(p => ({...p, vibe: e.target.value}))} />
+                  <input type="text" placeholder="WFC Friendly" value={newSpot.vibe} onChange={(e) => setNewSpot(p => ({ ...p, vibe: e.target.value }))} />
                 </div>
                 <div className="form-field">
                   <label>Link Gambar</label>
-                  <input type="text" placeholder="URL gambar spot" value={newSpot.image} onChange={(e) => setNewSpot(p => ({...p, image: e.target.value}))} />
+                  <input type="text" placeholder="URL gambar spot" value={newSpot.image} onChange={(e) => setNewSpot(p => ({ ...p, image: e.target.value }))} />
                 </div>
               </div>
 
               <div className="form-field">
                 <label>Rekomendasi Menu</label>
-                <input type="text" placeholder="Contoh: Kopi Susu, Kentang" value={newSpot.menu} onChange={(e) => setNewSpot(p => ({...p, menu: e.target.value}))} />
+                <input type="text" placeholder="Kopi Susu, Kentang" value={newSpot.menu} onChange={(e) => setNewSpot(p => ({ ...p, menu: e.target.value }))} />
               </div>
-              
+
               <div className="form-group-grid">
                 <div className="form-field">
                   <label>Fasilitas Tambahan</label>
-                  <input type="text" placeholder="Contoh: AC, Smoking Area" value={newSpot.facilities} onChange={(e) => setNewSpot(p => ({...p, facilities: e.target.value}))} />
+                  <input type="text" placeholder="AC, Smoking Area" value={newSpot.facilities} onChange={(e) => setNewSpot(p => ({ ...p, facilities: e.target.value }))} />
                 </div>
                 <div className="form-field">
                   <label>Jam Operasional</label>
-                  <input type="text" placeholder="Contoh: 09:00 - 22:00" value={newSpot.operationalHours} onChange={(e) => setNewSpot(p => ({...p, operationalHours: e.target.value}))} />
+                  <input type="text" placeholder="09:00 - 22:00" value={newSpot.operationalHours} onChange={(e) => setNewSpot(p => ({ ...p, operationalHours: e.target.value }))} />
                 </div>
               </div>
             </div>
 
             <div className="main-form-map">
               <div className="location-picker-group">
-                <div className="form-field" style={{marginBottom: '8px'}}>
+                <div className="form-field" style={{ marginBottom: '8px' }}>
                   <label>Titik Lokasi (Klik Peta)</label>
-                  <LocationPickerMap lat={Number(newSpot.lat)} lng={Number(newSpot.lng)} onChange={(lat, lng) => setNewSpot(p => ({...p, lat: lat.toFixed(6), lng: lng.toFixed(6)}))} />
+                  <LocationPickerMap lat={Number(newSpot.lat)} lng={Number(newSpot.lng)} onChange={(lat, lng) => setNewSpot(p => ({ ...p, lat: lat.toFixed(6), lng: lng.toFixed(6) }))} />
                 </div>
                 <div className="form-group-grid">
                   <div className="form-field">
                     <label>Latitude</label>
-                    <input type="number" step="0.000001" value={newSpot.lat} onChange={(e) => setNewSpot(p => ({...p, lat: e.target.value}))} />
+                    <input type="number" step="0.000001" value={newSpot.lat} onChange={(e) => setNewSpot(p => ({ ...p, lat: e.target.value }))} />
                   </div>
                   <div className="form-field">
                     <label>Longitude</label>
-                    <input type="number" step="0.000001" value={newSpot.lng} onChange={(e) => setNewSpot(p => ({...p, lng: e.target.value}))} />
+                    <input type="number" step="0.000001" value={newSpot.lng} onChange={(e) => setNewSpot(p => ({ ...p, lng: e.target.value }))} />
                   </div>
                 </div>
               </div>
@@ -1177,7 +1341,7 @@ function ContributePage({ state }) {
             <label>Alasan Laporan</label>
             <textarea
               rows="3"
-              placeholder="Contoh: Jam buka berubah, tempat tutup permanen"
+              placeholder="Jam buka berubah, tempat tutup permanen"
               value={reportForm.reason}
               onChange={(event) => setReportForm((prev) => ({ ...prev, reason: event.target.value }))}
               required
@@ -1362,7 +1526,7 @@ function VerifyPage({ state }) {
             </div>
           ) : (
             <div className="verify-empty">
-<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
               <p>Belum ada request verifikasi.</p>
             </div>
           )}
