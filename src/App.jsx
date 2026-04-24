@@ -2198,147 +2198,188 @@ function AdminPage({ state }) {
   const pendingMerchantAccounts = users ? users.filter(u => u.status === 'pending_approval') : []
 
   return (
-    <motion.section className="usecase-board" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-      <header className="page-header">
-        <h1>Admin Moderation</h1>
-        <p>Panel kendali pusat untuk verifikasi spot, user, dan laporan data.</p>
+    <motion.section 
+      className="adm-v2-container" 
+      variants={pageVariants} 
+      initial="initial" 
+      animate="animate" 
+      exit="exit"
+    >
+      <header className="adm-v2-header">
+        <div className="adm-v2-title-section">
+          <h1>Admin Board</h1>
+          <p>Global moderation hub for <strong>Ngalam Hidden Spot</strong>.</p>
+        </div>
+        <div className="adm-v2-stats-row">
+          <div className="adm-v2-stat-pill">
+            <span className="val">{users.length}</span>
+            <span className="lab">Users</span>
+          </div>
+          <div className="adm-v2-stat-pill">
+            <span className="val">{pendingSpots.length + pendingMerchantAccounts.length + verificationRequests.filter(r => r.status === 'pending').length}</span>
+            <span className="lab">Total Tasks</span>
+          </div>
+        </div>
       </header>
-      <motion.div className="admin-grid" variants={staggerContainer} initial="initial" animate="animate">
-        <SpotlightPanel as={motion.article} variants={staggerItem} className="admin-panel-card">
-          <h3>Persetujuan Akun Merchant</h3>
-          {pendingMerchantAccounts.length > 0 ? (
-            <ul className="admin-list">
-              {pendingMerchantAccounts.map((user) => (
-                <li key={user.id} className="admin-request-item">
-                  <div className="admin-request-info">
-                    <strong>{user.name}</strong>
-                    <p className="id-details">{user.email} | {user.phone}</p>
-                    {user.nib && <p className="admin-nib-display">NIB: <span>{user.nib}</span></p>}
-                  </div>
-                  <div className="admin-actions">
-                    <button type="button" className="inline-btn" onClick={() => actions.approveMerchantAccount(user.id)}>
-                      Setujui
-                    </button>
-                    <button type="button" className="inline-btn danger" onClick={() => actions.rejectMerchantAccount(user.id)}>
-                      Tolak
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="empty-msg">Tidak ada pendaftaran akun baru.</p>
-          )}
-        </SpotlightPanel>
 
-        <SpotlightPanel as={motion.article} variants={staggerItem}>
-          <h3>Pending Spot</h3>
-          {pendingSpots.length > 0 ? (
-            <ul>
-              {pendingSpots.map((spot) => (
-                <li key={spot.id}>
-                  <span>{spot.name}</span>
-                  <div>
-                    <button type="button" className="inline-btn" onClick={() => actions.approveSpot(spot.id)}>
-                      Approve
-                    </button>
-                    <button
-                      type="button"
-                      className="inline-btn danger"
-                      onClick={() => actions.rejectSpot(spot.id)}
-                    >
-                      Reject
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>Tidak ada pending spot.</p>
-          )}
-        </SpotlightPanel>
-
-        <SpotlightPanel as={motion.article} variants={staggerItem}>
-          <h3>Verifikasi User</h3>
-          {verificationRequests.length > 0 ? (
-            <ul>
-              {verificationRequests.map((request) => (
-                <li key={request.id} className="admin-request-item">
-                  <div className="admin-request-info">
-                    <div className="admin-request-header">
-                      <strong>{request.userName}</strong>
-                      <span className={`request-type-pill ${request.type}`}>{request.type === 'merchant_claim' ? 'Merchant' : 'Identity'}</span>
-                      <span className={`status-small status-${request.status}`}>{request.status}</span>
+      <motion.div className="adm-v2-grid" variants={staggerContainer} initial="initial" animate="animate">
+        {/* 1. MERCHANT APPROVALS */}
+        <SpotlightPanel as={motion.article} variants={staggerItem} className="adm-v2-card">
+          <div className="adm-v2-card-head">
+            <div className="adm-v2-card-title">
+              <div className="adm-v2-card-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
+              </div>
+              <h3>Persetujuan Merchant</h3>
+            </div>
+            <span className="adm-v2-badge">{pendingMerchantAccounts.length} Pending</span>
+          </div>
+          <div className="adm-v2-content">
+            {pendingMerchantAccounts.length > 0 ? (
+              <ul className="adm-v2-list">
+                {pendingMerchantAccounts.map((user) => (
+                  <li key={user.id} className="adm-v2-item">
+                    <div className="adm-v2-info">
+                      <strong>{user.name}</strong>
+                      <span className="sub">{user.email}</span>
+                      {user.nib && <div className="adm-v2-nib-pill">NIB: <span>{user.nib}</span></div>}
                     </div>
-                    {request.type === 'merchant_claim' ? (
-                      <div className="merchant-claim-details">
-                        <p>Klaim Spot: <strong>{request.spotName}</strong></p>
-                        {request.proofLink && (
-                          <a href={request.proofLink} target="_blank" rel="noopener noreferrer" className="proof-link">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                            Buka Bukti Dokumen
-                          </a>
-                        )}
-                        {request.message && <p className="request-msg">"{request.message}"</p>}
-                      </div>
-                    ) : (
-                      <p className="id-details">{request.docType}: {request.docNumber}</p>
-                    )}
-                  </div>
-                  {request.status === 'pending' ? (
-                    <div className="admin-actions">
-                      <button
-                        type="button"
-                        className="inline-btn"
-                        onClick={() => actions.approveVerification(request.id, request.userId)}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        type="button"
-                        className="inline-btn danger"
-                        onClick={() => actions.rejectVerification(request.id)}
-                      >
-                        Reject
-                      </button>
+                    <div className="adm-v2-actions">
+                      <button className="adm-v2-btn reject" onClick={() => actions.rejectMerchantAccount(user.id)}>Tolak</button>
+                      <button className="adm-v2-btn approve" onClick={() => actions.approveMerchantAccount(user.id)}>Setujui</button>
                     </div>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>Belum ada request verifikasi.</p>
-          )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="adm-v2-empty">
+                <div className="adm-v2-empty-icon">☕</div>
+                <p>Semua pendaftaran sudah diproses.</p>
+              </div>
+            )}
+          </div>
         </SpotlightPanel>
 
-        <SpotlightPanel as={motion.article} variants={staggerItem}>
-          <h3>Laporan Data Usang</h3>
-          {reports.length > 0 ? (
-            <ul>
-              {reports.map((report) => (
-                <li key={report.id}>
-                  <span>
-                    {report.spotName}: {report.reason} ({report.status})
-                  </span>
-                  {report.status === 'open' ? (
-                    <button
-                      type="button"
-                      className="inline-btn"
-                      onClick={() => actions.resolveReport(report.id)}
-                    >
-                      Resolve
-                    </button>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>Belum ada laporan.</p>
-          )}
+        {/* 2. PENDING SPOTS */}
+        <SpotlightPanel as={motion.article} variants={staggerItem} className="adm-v2-card">
+          <div className="adm-v2-card-head">
+            <div className="adm-v2-card-title">
+              <div className="adm-v2-card-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+              </div>
+              <h3>Moderasi Spot</h3>
+            </div>
+            <span className="adm-v2-badge">{pendingSpots.length} New</span>
+          </div>
+          <div className="adm-v2-content">
+            {pendingSpots.length > 0 ? (
+              <ul className="adm-v2-list">
+                {pendingSpots.map((spot) => (
+                  <li key={spot.id} className="adm-v2-item">
+                    <div className="adm-v2-info">
+                      <strong>{spot.name}</strong>
+                      <span className="sub">{spot.area} • {spot.vibe}</span>
+                    </div>
+                    <div className="adm-v2-actions">
+                      <button className="adm-v2-btn reject" onClick={() => actions.rejectSpot(spot.id)}>Reject</button>
+                      <button className="adm-v2-btn approve" onClick={() => actions.approveSpot(spot.id)}>Approve</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="adm-v2-empty">
+                <div className="adm-v2-empty-icon">📍</div>
+                <p>Tidak ada spot yang menunggu review.</p>
+              </div>
+            )}
+          </div>
+        </SpotlightPanel>
+
+        {/* 3. USER VERIFICATION (IDENTITY & CLAIMS) */}
+        <SpotlightPanel as={motion.article} variants={staggerItem} className="adm-v2-card">
+          <div className="adm-v2-card-head">
+            <div className="adm-v2-card-title">
+              <div className="adm-v2-card-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+              </div>
+              <h3>Verifikasi Identitas</h3>
+            </div>
+            <span className="adm-v2-badge">{verificationRequests.filter(r => r.status === 'pending').length} Req</span>
+          </div>
+          <div className="adm-v2-content">
+            {verificationRequests.some(r => r.status === 'pending') ? (
+              <ul className="adm-v2-list">
+                {verificationRequests.filter(r => r.status === 'pending').map((request) => (
+                  <li key={request.id} className="adm-v2-item">
+                    <div className="adm-v2-info">
+                      <strong>{request.userName} <span className={`adm-v2-request-type ${request.type}`}>{request.type === 'merchant_claim' ? 'Claim' : 'ID'}</span></strong>
+                      {request.type === 'merchant_claim' ? (
+                        <span className="sub">Klaim: {request.spotName}</span>
+                      ) : (
+                        <span className="sub">{request.docType}: {request.docNumber}</span>
+                      )}
+                      {request.proofLink && (
+                        <a href={request.proofLink} target="_blank" rel="noopener noreferrer" className="adm-v2-proof-link">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                          Lihat Bukti
+                        </a>
+                      )}
+                    </div>
+                    <div className="adm-v2-actions">
+                      <button className="adm-v2-btn reject" onClick={() => actions.rejectVerification(request.id)}>Reject</button>
+                      <button className="adm-v2-btn approve" onClick={() => actions.approveVerification(request.id, request.userId)}>Verify</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="adm-v2-empty">
+                <div className="adm-v2-empty-icon">🆔</div>
+                <p>Antrean verifikasi kosong.</p>
+              </div>
+            )}
+          </div>
+        </SpotlightPanel>
+
+        {/* 4. DATA REPORTS */}
+        <SpotlightPanel as={motion.article} variants={staggerItem} className="adm-v2-card">
+          <div className="adm-v2-card-head">
+            <div className="adm-v2-card-title">
+              <div className="adm-v2-card-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+              </div>
+              <h3>Laporan User</h3>
+            </div>
+            <span className="adm-v2-badge">{reports.filter(r => r.status === 'open').length} Issue</span>
+          </div>
+          <div className="adm-v2-content">
+            {reports.some(r => r.status === 'open') ? (
+              <ul className="adm-v2-list">
+                {reports.filter(r => r.status === 'open').map((report) => (
+                  <li key={report.id} className="adm-v2-item">
+                    <div className="adm-v2-info">
+                      <strong>{report.spotName}</strong>
+                      <span className="sub">{report.reason}</span>
+                    </div>
+                    <div className="adm-v2-actions">
+                      <button className="adm-v2-btn approve" onClick={() => actions.resolveReport(report.id)}>Resolve</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="adm-v2-empty">
+                <div className="adm-v2-empty-icon">🛡️</div>
+                <p>Sistem dalam kondisi aman & akurat.</p>
+              </div>
+            )}
+          </div>
         </SpotlightPanel>
       </motion.div>
     </motion.section>
   )
 }
+
 
 export default App
