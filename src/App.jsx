@@ -184,6 +184,75 @@ const AuthPixel = ({ index, x }) => {
   )
 }
 
+const MerchantPendingScreen = ({ onBack }) => {
+  return (
+    <motion.div 
+      className="merchant-pending-screen"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="pending-content-card">
+        <motion.div 
+          className="pending-icon-wrap"
+          initial={{ scale: 0.5, rotate: -20 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: "spring", stiffness: 200, damping: 20 }}
+        >
+          <div className="hologram-circle"></div>
+          <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+        </motion.div>
+        
+        <motion.h2
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          Pendaftaran Berhasil!
+        </motion.h2>
+        <motion.p
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.4 }}
+        >
+          Akun Merchant Anda telah kami terima. Tim Admin akan melakukan verifikasi berkas dan identitas Anda dalam waktu:
+        </motion.p>
+        
+        <motion.div 
+          className="countdown-box"
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.6, type: "spring" }}
+        >
+          <span className="time-val">2 x 24</span>
+          <span className="time-unit">JAM KERJA</span>
+        </motion.div>
+        
+        <motion.p 
+          className="pending-note"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+        >
+          Kami akan menghubungi Anda melalui email atau nomor telepon yang terdaftar jika proses verifikasi selesai.
+        </motion.p>
+        
+        <motion.button 
+          className="btn-back-auth"
+          onClick={onBack}
+          whileHover={{ x: -5 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1 }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          Kembali ke Login
+        </motion.button>
+      </div>
+    </motion.div>
+  )
+}
+
 const AuthBackground = ({ mode }) => {
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
@@ -248,6 +317,7 @@ function App() {
   const [loginRole, setLoginRole] = useState('student')
   const [registerEmail, setRegisterEmail] = useState('')
   const [registerPhone, setRegisterPhone] = useState('')
+  const [registerNIB, setRegisterNIB] = useState('')
 
   const [maxBudget, setMaxBudget] = useState(15000)
   const [minWifi, setMinWifi] = useState(20)
@@ -269,6 +339,7 @@ function App() {
   })
 
   const [verificationForm, setVerificationForm] = useState({ docType: 'KTM', docNumber: '' })
+  const [showMerchantPending, setShowMerchantPending] = useState(false)
   const [reviewForm, setReviewForm] = useState({ spotId: 1, rating: 5, comment: '' })
   const [reportForm, setReportForm] = useState({ spotId: 1, reason: '' })
   const [merchantEdit, setMerchantEdit] = useState({
@@ -277,6 +348,7 @@ function App() {
     facilities: '',
     operationalHours: '',
   })
+  const [merchantVerifyForm, setMerchantVerifyForm] = useState({ spotId: '', proofLink: '', message: '' })
 
   const currentUser = users.find((user) => user.id === activeUserId) ?? null
   const approvedSpots = useMemo(() => spots.filter((spot) => spot.status === 'approved'), [spots])
@@ -336,6 +408,10 @@ function App() {
         window.alert('Akun tidak ditemukan. Gunakan mode Register jika belum punya akun.')
         return
       }
+      if (existing.status === 'pending_approval') {
+        window.alert('Akun Merchant Anda sedang diverifikasi admin (Estimasi 2x24 jam).')
+        return
+      }
       if (existing.password !== cleanPassword) {
         window.alert('Password salah.')
         return
@@ -358,16 +434,25 @@ function App() {
       name: cleanName,
       email: registerEmail.trim(),
       phone: registerPhone.trim(),
+      nib: loginRole === 'merchant' ? registerNIB.trim() : null,
       role: loginRole,
-      verified: loginRole === 'merchant',
+      status: loginRole === 'merchant' ? 'pending_approval' : 'active',
+      verified: false,
       password: cleanPassword,
     }
     setUsers((prev) => [...prev, newUser])
-    setActiveUserId(newUser.id)
+
+    if (loginRole === 'merchant') {
+      setShowMerchantPending(true)
+    } else {
+      setActiveUserId(newUser.id)
+    }
+
     setLoginName('')
     setLoginPassword('')
     setRegisterEmail('')
     setRegisterPhone('')
+    setRegisterNIB('')
   }
 
   const handleLogout = () => {
@@ -429,12 +514,37 @@ function App() {
         id: Date.now(),
         userId: currentUser.id,
         userName: currentUser.name,
+        type: 'identity',
         docType: verificationForm.docType,
         docNumber: verificationForm.docNumber,
         status: 'pending',
       },
     ])
     setVerificationForm({ docType: 'KTM', docNumber: '' })
+  }
+
+  const handleSubmitMerchantVerification = (event) => {
+    event.preventDefault()
+    if (!currentUser) return
+
+    const targetSpot = approvedSpots.find(s => s.id === Number(merchantVerifyForm.spotId))
+
+    setVerificationRequests((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        userId: currentUser.id,
+        userName: currentUser.name,
+        type: 'merchant_claim',
+        spotId: Number(merchantVerifyForm.spotId),
+        spotName: targetSpot?.name || 'Unknown',
+        proofLink: merchantVerifyForm.proofLink,
+        message: merchantVerifyForm.message,
+        status: 'pending',
+      },
+    ])
+    setMerchantVerifyForm({ spotId: '', proofLink: '', message: '' })
+    window.alert('Request verifikasi kepemilikan merchant telah dikirim!')
   }
 
   const handleSubmitReview = (event) => {
@@ -502,10 +612,25 @@ function App() {
   }
 
   const approveVerification = (requestId, userId) => {
+    const request = verificationRequests.find(r => r.id === requestId)
+    
     setVerificationRequests((prev) =>
       prev.map((item) => (item.id === requestId ? { ...item, status: 'approved' } : item)),
     )
-    setUsers((prev) => prev.map((user) => (user.id === userId ? { ...user, verified: true } : user)))
+    
+    setUsers((prev) => prev.map((user) => {
+      if (user.id !== userId) return user
+      
+      if (request?.type === 'merchant_claim') {
+        return { 
+          ...user, 
+          role: 'merchant', 
+          verified: true, 
+          ownedSpotId: request.spotId 
+        }
+      }
+      return { ...user, verified: true }
+    }))
   }
 
   const rejectVerification = (requestId) => {
@@ -530,6 +655,25 @@ function App() {
     )
   }
 
+  const updateUser = (userId, updates) => {
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, ...updates } : u))
+    )
+    if (currentUser && currentUser.id === userId) {
+      setCurrentUser((prev) => ({ ...prev, ...updates }))
+    }
+  }
+
+  const approveMerchantAccount = (userId) => {
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, status: 'active' } : u))
+    )
+  }
+
+  const rejectMerchantAccount = (userId) => {
+    setUsers((prev) => prev.filter((u) => u.id !== userId))
+  }
+
   const removeReview = (spotId, reviewId) => {
     setSpots((prev) =>
       prev.map((spot) =>
@@ -544,148 +688,181 @@ function App() {
     return (
       <section className="auth-gate">
         <AuthBackground mode={authMode} />
-        <motion.div
-          className="auth-card-wrap"
-          initial={{ opacity: 0, y: 30, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-        >
-          <SpotlightPanel className="auth-card">
-            <header className="auth-header">
-              <div className="auth-brand">
-                <img src="/logo.png" alt="Logo" className="auth-logo" />
-                <div className="auth-brand-text">
-                  <span className="auth-brand-title">Ngalam Hidden Spot</span>
-                  <span className="auth-brand-tag">PREMIUM ACCESS</span>
-                </div>
-              </div>
-              <h1>{authMode === 'login' ? 'Selamat Datang Kembali' : 'Bergabung Sekarang'}</h1>
-              <p className="auth-subtitle">
-                {authMode === 'login'
-                  ? 'Masuk untuk menjelajahi spot tersembunyi terbaik di Malang.'
-                  : 'Daftar dan mulai berkontribusi untuk komunitas mahasiswa Malang.'}
-              </p>
-            </header>
+        <AnimatePresence mode="wait">
+          {showMerchantPending ? (
+            <MerchantPendingScreen onBack={() => { setShowMerchantPending(false); setAuthMode('login'); }} />
+          ) : (
+            <motion.div
+              key="auth-card-wrap"
+              className="auth-card-wrap"
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -30, scale: 0.95 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+            >
+              <SpotlightPanel className="auth-card">
+                <header className="auth-header">
+                  <div className="auth-brand">
+                    <img src="/logo.png" alt="Logo" className="auth-logo" />
+                    <div className="auth-brand-text">
+                      <span className="auth-brand-title">Ngalam Hidden Spot</span>
+                      <span className="auth-brand-tag">PREMIUM ACCESS</span>
+                    </div>
+                  </div>
+                  <h1>{authMode === 'login' ? 'Selamat Datang Kembali' : 'Bergabung Sekarang'}</h1>
+                  <p className="auth-subtitle">
+                    {authMode === 'login'
+                      ? 'Masuk untuk menjelajahi spot tersembunyi terbaik di Malang.'
+                      : 'Daftar dan mulai berkontribusi untuk komunitas mahasiswa Malang.'}
+                  </p>
+                </header>
 
-            <div className="auth-mode-toggle">
-              <button
-                type="button"
-                className={`auth-toggle-btn ${authMode === 'login' ? 'active' : ''}`}
-                onClick={() => setAuthMode('login')}
-              >
-                Login
-              </button>
-              <button
-                type="button"
-                className={`auth-toggle-btn ${authMode === 'register' ? 'active' : ''}`}
-                onClick={() => setAuthMode('register')}
-              >
-                Register
-              </button>
-              <div
-                className="auth-toggle-slider"
-                style={{ transform: `translateX(${authMode === 'login' ? '0' : '100%'})` }}
-              ></div>
-            </div>
-
-            <form className="gate-form" onSubmit={handleLogin}>
-              <div className="input-group">
-                <label>Username / Email</label>
-                <input
-                  type="text"
-                  placeholder="name@student.ub.ac.id"
-                  value={loginName}
-                  onChange={(event) => setLoginName(event.target.value)}
-                  required
-                />
-              </div>
-
-              <AnimatePresence mode="wait">
-                {authMode === 'register' && (
-                  <motion.div
-                    key="register-fields"
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="register-extras"
+                <div className="auth-mode-toggle">
+                  <button
+                    type="button"
+                    className={`auth-toggle-btn ${authMode === 'login' ? 'active' : ''}`}
+                    onClick={() => setAuthMode('login')}
                   >
-                    <div className="input-group">
-                      <label>Email</label>
-                      <input
-                        type="email"
-                        placeholder="yourname@gmail.com"
-                        value={registerEmail}
-                        onChange={(event) => setRegisterEmail(event.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="input-group">
-                      <label>Nomor Telepon</label>
-                      <input
-                        type="tel"
-                        placeholder="0812xxxx"
-                        value={registerPhone}
-                        onChange={(event) => setRegisterPhone(event.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="input-group">
-                      <label>Pilih Peran</label>
-                      <select value={loginRole} onChange={(event) => setLoginRole(event.target.value)}>
-                        <option value="student">Malang Student</option>
-                        <option value="merchant">Merchant / Owner</option>
-                        <option value="general">General User</option>
-                      </select>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    Login
+                  </button>
+                  <button
+                    type="button"
+                    className={`auth-toggle-btn ${authMode === 'register' ? 'active' : ''}`}
+                    onClick={() => setAuthMode('register')}
+                  >
+                    Register
+                  </button>
+                  <div
+                    className="auth-toggle-slider"
+                    style={{ transform: `translateX(${authMode === 'login' ? '0' : '100%'})` }}
+                  ></div>
+                </div>
 
-              <div className="input-group">
-                <label>Password</label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={loginPassword}
-                  onChange={(event) => setLoginPassword(event.target.value)}
-                  required
-                />
-              </div>
+                <form className="gate-form" onSubmit={handleLogin}>
+                  <div className="input-group">
+                    <label>Username / Email</label>
+                    <input
+                      type="text"
+                      placeholder="name@student.ub.ac.id"
+                      value={loginName}
+                      onChange={(event) => setLoginName(event.target.value)}
+                      required
+                    />
+                  </div>
 
-              <button type="submit" className="btn btn-primary auth-submit">
-                {authMode === 'login' ? (
-                  <>
-                    <span>Masuk ke Akun</span>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-                  </>
-                ) : (
-                  <>
-                    <span>Buat Akun Baru</span>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-                  </>
-                )}
-              </button>
-            </form>
+                  <AnimatePresence mode="wait">
+                    {authMode === 'register' && (
+                      <motion.div
+                        key="register-fields"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="register-extras"
+                      >
+                        <div className="input-group">
+                          <label>Email</label>
+                          <input
+                            type="email"
+                            placeholder="yourname@gmail.com"
+                            value={registerEmail}
+                            onChange={(event) => setRegisterEmail(event.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="input-group">
+                          <label>Nomor Telepon</label>
+                          <input
+                            type="tel"
+                            placeholder="0812xxxx"
+                            value={registerPhone}
+                            onChange={(event) => setRegisterPhone(event.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="input-group">
+                          <label>Pilih Peran</label>
+                          <select value={loginRole} onChange={(event) => setLoginRole(event.target.value)}>
+                            <option value="student">Malang Student</option>
+                            <option value="merchant">Merchant / Owner</option>
+                            <option value="general">General User</option>
+                          </select>
+                        </div>
+                        
+                        {loginRole === 'merchant' && (
+                          <>
+                            <div className="input-group">
+                              <label>Nomor NIB (Nomor Induk Berusaha)</label>
+                              <input
+                                type="text"
+                                placeholder="Masukkan 13 digit NIB..."
+                                value={registerNIB}
+                                onChange={(event) => setRegisterNIB(event.target.value)}
+                                required
+                              />
+                            </div>
+                            <motion.div 
+                              className="merchant-requirement-info"
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                              <p>Akun Merchant memerlukan verifikasi kepemilikan bisnis. Anda wajib melampirkan bukti fisik (Foto NIB/Izin) setelah akun disetujui Admin.</p>
+                            </motion.div>
+                          </>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-            <div className="auth-footer">
-              <p>Coba gunakan akun demo:</p>
-              <div className="demo-chips">
-                <button type="button" onClick={() => { setLoginName('Admin NHS'); setLoginPassword('admin123') }}>Admin</button>
-                <button type="button" onClick={() => { setLoginName('Marsel'); setLoginPassword('marsel123') }}>Student</button>
-                <button type="button" onClick={() => { setLoginName('Merchant Mie Gacoan'); setLoginPassword('merchant123') }}>Merchant</button>
-              </div>
-            </div>
-          </SpotlightPanel>
-        </motion.div>
+                  <div className="input-group">
+                    <label>Password</label>
+                    <input
+                      type="password"
+                      placeholder="••••••••"
+                      value={loginPassword}
+                      onChange={(event) => setLoginPassword(event.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <button type="submit" className="btn btn-primary auth-submit">
+                    {authMode === 'login' ? (
+                      <>
+                        <span>Masuk ke Akun</span>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                      </>
+                    ) : (
+                      <>
+                        <span>Buat Akun Baru</span>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                <div className="auth-footer">
+                  <p>Coba gunakan akun demo:</p>
+                  <div className="demo-chips">
+                    <button type="button" onClick={() => { setLoginName('Admin NHS'); setLoginPassword('admin123') }}>Admin</button>
+                    <button type="button" onClick={() => { setLoginName('Marsel'); setLoginPassword('marsel123') }}>Student</button>
+                    <button type="button" onClick={() => { setLoginName('Merchant Mie Gacoan'); setLoginPassword('merchant123') }}>Merchant</button>
+                  </div>
+                </div>
+              </SpotlightPanel>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </section>
     )
   }
 
   const appState = {
     currentUser,
+    spots,
     approvedSpots,
     filteredSpots,
     reports,
+    users,
     verificationRequests,
     pendingSpots,
     controlledMerchantSpots,
@@ -704,6 +881,8 @@ function App() {
       selectedReviewSpotId,
       selectedReportSpotId,
       selectedMerchantSpotId,
+      merchantVerifyForm,
+      setMerchantVerifyForm,
     },
     permissions: { canSubmitSpot, canPostReview, canReport, canUseMerchantPanel, canUseAdminPanel },
     actions: {
@@ -713,12 +892,16 @@ function App() {
       handleSubmitReview,
       handleSubmitReport,
       handleMerchantUpdate,
+      handleSubmitMerchantVerification,
       approveVerification,
       rejectVerification,
       approveSpot,
       rejectSpot,
       resolveReport,
       removeReview,
+      approveMerchantAccount,
+      rejectMerchantAccount,
+      updateUser,
     },
   }
 
@@ -743,6 +926,10 @@ function App() {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
               <span>Verify</span>
             </NavLink>
+            <NavLink to="/profile">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              <span>Profile</span>
+            </NavLink>
             {canUseAdminPanel ? (
               <NavLink to="/admin">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
@@ -752,6 +939,7 @@ function App() {
           </nav>
 
           <div className="ag-user-actions">
+            {currentUser.profilePic && <img src={currentUser.profilePic} alt="Avatar" className="ag-nav-avatar" />}
             <span className="ag-user-chip">{currentUser.name} <span className="chip-role">({currentUser.role})</span></span>
             <button type="button" className="ag-btn-logout" onClick={handleLogout}>Logout</button>
           </div>
@@ -884,6 +1072,7 @@ function AnimatedRoutes({ appState }) {
         <Route path="/spot/:id" element={<SpotDetailPage state={appState} />} />
         <Route path="/contribute" element={<ContributePage state={appState} />} />
         <Route path="/verify" element={<VerifyPage state={appState} />} />
+        <Route path="/profile" element={<ProfilePage state={appState} />} />
         <Route
           path="/admin"
           element={canUseAdminPanel ? <AdminPage state={appState} /> : <Navigate to="/" replace />}
@@ -1440,8 +1629,8 @@ function ContributePage({ state }) {
 }
 
 function VerifyPage({ state }) {
-  const { currentUser, verificationRequests, forms, actions } = state
-  const { verificationForm, setVerificationForm } = forms
+  const { currentUser, approvedSpots, verificationRequests, forms, actions } = state
+  const { verificationForm, setVerificationForm, merchantVerifyForm, setMerchantVerifyForm } = forms
   const myRequests = verificationRequests.filter(
     (request) => currentUser && request.userId === currentUser.id,
   )
@@ -1449,8 +1638,8 @@ function VerifyPage({ state }) {
   return (
     <motion.section className="verification-flow" variants={pageVariants} initial="initial" animate="animate" exit="exit">
       <header className="page-header">
-        <h1>Verifikasi Identitas</h1>
-        <p>Dapatkan badge verified untuk menjamin integritas data komunitas.</p>
+        <h1>Pusat Verifikasi Akun</h1>
+        <p>Verifikasi identitas mahasiswa atau klaim kepemilikan bisnis Anda.</p>
       </header>
 
       <motion.div className="verify-steps" variants={staggerContainer} initial="initial" animate="animate">
@@ -1459,83 +1648,132 @@ function VerifyPage({ state }) {
           <div className="step-icon">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
           </div>
-          <h3>Pilih Dokumen</h3>
-          <p>KTM, KTP, SIM, atau Kartu Pelajar sebagai bukti identitas Anda.</p>
+          <h3>Lengkapi Profil</h3>
+          <p>Pastikan nama dan nomor kontak Anda sudah sesuai di pengaturan.</p>
         </motion.div>
         <motion.div className="verify-step-card" variants={staggerItem}>
           <div className="step-number">2</div>
           <div className="step-icon">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
           </div>
-          <h3>Submit Form</h3>
-          <p>Masukkan nomor dokumen lalu kirim request verifikasi ke sistem.</p>
+          <h3>Kirim Bukti</h3>
+          <p>Upload KTM atau link dokumen pendukung bisnis Anda (NIB/Izin).</p>
         </motion.div>
         <motion.div className="verify-step-card" variants={staggerItem}>
           <div className="step-number">3</div>
           <div className="step-icon">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
           </div>
-          <h3>Menunggu Admin</h3>
-          <p>Admin akan me-review dan approve atau reject verifikasi Anda.</p>
+          <h3>Audit Admin</h3>
+          <p>Tunggu maksimal 1x24 jam untuk proses review oleh tim kami.</p>
         </motion.div>
       </motion.div>
 
       <div className="verify-form-grid">
-        <SpotlightPanel as="form" onSubmit={actions.handleSubmitVerification} className="verify-panel verify-submit-panel">
-          <h3>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-            Kirim Verifikasi
-          </h3>
-          <p className="form-subtitle">Lengkapi data berikut untuk memulai proses verifikasi akun Anda.</p>
-          <div className="verify-form-row">
-            <div className="form-field">
-              <label>Tipe Dokumen</label>
-              <select
-                value={verificationForm.docType}
-                onChange={(event) =>
-                  setVerificationForm((prev) => ({ ...prev, docType: event.target.value }))
-                }
-              >
-                <option value="KTM">KTM (Kartu Tanda Mahasiswa)</option>
-                <option value="KTP">KTP (Kartu Tanda Penduduk)</option>
-                <option value="SIM">SIM (Surat Izin Mengemudi)</option>
-                <option value="Kartu Pelajar">Kartu Pelajar</option>
-              </select>
+        <div className="verify-forms-col">
+          <SpotlightPanel as="form" onSubmit={actions.handleSubmitVerification} className="verify-panel verify-submit-panel">
+            <h3>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              Verifikasi Mahasiswa
+            </h3>
+            <p className="form-subtitle">Dapatkan akses untuk submit spot dan review (KTM/Identitas).</p>
+            <div className="verify-form-row">
+              <div className="form-field">
+                <label>Tipe Dokumen</label>
+                <select
+                  value={verificationForm.docType}
+                  onChange={(event) =>
+                    setVerificationForm((prev) => ({ ...prev, docType: event.target.value }))
+                  }
+                >
+                  <option value="KTM">KTM (Kartu Tanda Mahasiswa)</option>
+                  <option value="KTP">KTP (Kartu Tanda Penduduk)</option>
+                  <option value="SIM">SIM (Surat Izin Mengemudi)</option>
+                </select>
+              </div>
+              <div className="form-field">
+                <label>Nomor Dokumen</label>
+                <input
+                  type="text"
+                  placeholder="Masukkan nomor dokumen"
+                  value={verificationForm.docNumber}
+                  onChange={(event) =>
+                    setVerificationForm((prev) => ({ ...prev, docNumber: event.target.value }))
+                  }
+                  required
+                />
+              </div>
             </div>
-            <div className="form-field">
-              <label>Nomor Dokumen</label>
-              <input
-                type="text"
-                placeholder="Masukkan nomor dokumen Anda"
-                value={verificationForm.docNumber}
-                onChange={(event) =>
-                  setVerificationForm((prev) => ({ ...prev, docNumber: event.target.value }))
-                }
-                required
-              />
-            </div>
-          </div>
-          <button type="submit" className="btn btn-primary submit-spot-btn" disabled={!currentUser}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
-            Kirim Verifikasi
-          </button>
-        </SpotlightPanel>
+            <button type="submit" className="btn btn-primary submit-spot-btn" disabled={!currentUser}>
+              Kirim Request Identitas
+            </button>
+          </SpotlightPanel>
+
+          {(currentUser?.role === 'merchant' || currentUser?.role === 'admin') && (
+            <SpotlightPanel as="form" onSubmit={actions.handleSubmitMerchantVerification} className="verify-panel verify-submit-panel merchant-verify-panel">
+              <h3>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                Verifikasi Merchant
+              </h3>
+              <p className="form-subtitle">Klaim kepemilikan spot untuk mengelola info operasional & menu.</p>
+              <div className="form-field">
+                <label>Pilih Spot Anda</label>
+                <select
+                  value={merchantVerifyForm.spotId}
+                  onChange={(event) =>
+                    setMerchantVerifyForm((prev) => ({ ...prev, spotId: event.target.value }))
+                  }
+                  required
+                >
+                  <option value="">-- Pilih Spot --</option>
+                  {approvedSpots.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              <div className="form-field">
+                <label>Link Dokumen Bisnis (NIB / Izin Usaha)</label>
+                <input
+                  type="text"
+                  placeholder="https://drive.google.com/..."
+                  value={merchantVerifyForm.proofLink}
+                  onChange={(event) =>
+                    setMerchantVerifyForm((prev) => ({ ...prev, proofLink: event.target.value }))
+                  }
+                  required
+                />
+              </div>
+              <div className="form-field">
+                <label>Pesan Tambahan (Opsional)</label>
+                <textarea
+                  rows="2"
+                  placeholder="Saya adalah manager operasional di sini..."
+                  value={merchantVerifyForm.message}
+                  onChange={(event) =>
+                    setMerchantVerifyForm((prev) => ({ ...prev, message: event.target.value }))
+                  }
+                />
+              </div>
+              <button type="submit" className="btn btn-primary submit-spot-btn" style={{ background: 'linear-gradient(135deg, #0f172a, #334155)' }} disabled={!currentUser}>
+                Kirim Klaim Merchant
+              </button>
+            </SpotlightPanel>
+          )}
+        </div>
 
         <SpotlightPanel as="article" className="verify-history">
           <h3>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-            Riwayat Request
+            Status Request
           </h3>
           {myRequests.length > 0 ? (
             <div className="verify-history-list">
               {myRequests.map((request) => (
                 <div key={request.id} className="verify-history-item">
                   <div className="verify-history-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                    {request.type === 'merchant_claim' ? '🏢' : '👤'}
                   </div>
                   <div className="verify-history-info">
-                    <strong>{request.docType}</strong>
-                    <span>{request.docNumber}</span>
+                    <strong>{request.type === 'merchant_claim' ? `Klaim: ${request.spotName}` : request.docType}</strong>
+                    <span>{request.type === 'merchant_claim' ? 'Menunggu review dokumen' : request.docNumber}</span>
                   </div>
                   <span className={`verify-status verify-status-${request.status}`}>{request.status}</span>
                 </div>
@@ -1550,8 +1788,6 @@ function VerifyPage({ state }) {
         </SpotlightPanel>
       </div>
     </motion.section>
-
-
   )
 }
 
@@ -1664,10 +1900,302 @@ function SpotDetailPage({ state }) {
   )
 }
 
+function ProfilePage({ state }) {
+  const { currentUser, spots = [], verificationRequests = [], reports = [], pendingSpots = [] } = state
+  const navigate = useNavigate()
+  const [showPhotoInput, setShowPhotoInput] = useState(false)
+  const [photoUrl, setPhotoUrl] = useState(currentUser?.profilePic || '')
+  const [showSecurity, setShowSecurity] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  if (!currentUser) return <Navigate to="/" replace />
+
+  const userSpots = spots.filter(s => s.ownerId === currentUser.id)
+  const userReviews = spots.reduce((acc, spot) => {
+    const reviews = (spot.reviews || []).filter(r => r.userName === currentUser.name)
+    return [...acc, ...reviews]
+  }, [])
+  const managedSpot = currentUser.ownedSpotId ? spots.find(s => s.id === currentUser.ownedSpotId) : null
+  const managedSpotRating = managedSpot && managedSpot.reviews && managedSpot.reviews.length > 0
+    ? (managedSpot.reviews.reduce((a, b) => a + b.rating, 0) / managedSpot.reviews.length).toFixed(1)
+    : 'N/A'
+  const pendingMerchantClaim = verificationRequests.find(r => r.userId === currentUser.id && r.type === 'merchant_claim' && r.status === 'pending')
+  const pendingIdentityVerify = verificationRequests.find(r => r.userId === currentUser.id && r.type === 'identity_verify' && r.status === 'pending')
+
+  const handleUpdatePhoto = (e) => {
+    e.preventDefault()
+    state.actions.updateUser(currentUser.id, { profilePic: photoUrl })
+    setShowPhotoInput(false)
+  }
+
+  const handleChangePassword = (e) => {
+    e.preventDefault()
+    if (newPassword.length < 6) {
+      alert('Password minimal 6 karakter.')
+      return
+    }
+    state.actions.updateUser(currentUser.id, { password: newPassword })
+    setNewPassword('')
+    setShowSecurity(false)
+    alert('Password berhasil diubah!')
+  }
+
+  return (
+    <motion.div className="pv2-container" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+      <div className="pv2-header-card">
+        <div className="pv2-header-content">
+          <div className="pv2-header-left">
+            <h1>Account Profile</h1>
+            <p>Welcome back, <strong>{currentUser.name}</strong>. Manage your data and preferences.</p>
+          </div>
+          <div className="pv2-header-stats">
+            <div className="pv2-h-stat">
+              <span className="pv2-stat-num">{userReviews.length}</span>
+              <span className="pv2-stat-label">REVIEWS</span>
+            </div>
+            <div className="pv2-h-stat">
+              <span className="pv2-stat-num">{userSpots.length}</span>
+              <span className="pv2-stat-label">SPOTS</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="pv2-main-grid">
+        <aside className="pv2-sidebar">
+          <SpotlightPanel className="pv2-card pv2-id-card">
+            <div className="pv2-avatar-section">
+              <div className="pv2-avatar-circle">
+                {currentUser.profilePic ? (
+                  <img src={currentUser.profilePic} alt="Avatar" />
+                ) : (
+                  <span>{currentUser.name.charAt(0).toUpperCase()}</span>
+                )}
+                <button className="pv2-photo-btn" onClick={() => setShowPhotoInput(!showPhotoInput)}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                </button>
+              </div>
+              <h2 className="pv2-user-name">{currentUser.name}</h2>
+              <div className="pv2-badge-row">
+                <span className={`pv2-role-badge pv2-role-${currentUser.role}`}>{currentUser.role.toUpperCase()}</span>
+                {currentUser.verified && <span className="pv2-verified-check">✓</span>}
+              </div>
+            </div>
+
+            <AnimatePresence>
+              {showPhotoInput && (
+                <motion.form 
+                  className="pv2-photo-form"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  onSubmit={handleUpdatePhoto}
+                >
+                  <input 
+                    type="url" 
+                    placeholder="Photo URL..." 
+                    value={photoUrl}
+                    onChange={(e) => setPhotoUrl(e.target.value)}
+                    required 
+                  />
+                  <div className="pv2-form-btns">
+                    <button type="button" className="pv2-btn-cancel" onClick={() => setShowPhotoInput(false)}>Cancel</button>
+                    <button type="submit" className="pv2-btn-save">Save</button>
+                  </div>
+                </motion.form>
+              )}
+            </AnimatePresence>
+
+            <div className="pv2-nav-menu">
+              <button className={`pv2-nav-item ${!showSecurity ? 'active' : ''}`} onClick={() => setShowSecurity(false)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                Dashboard
+              </button>
+              <button className={`pv2-nav-item ${showSecurity ? 'active' : ''}`} onClick={() => setShowSecurity(true)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                Security
+              </button>
+              <hr />
+              <button className="pv2-nav-item logout" onClick={() => state.actions.handleLogout()}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                Logout
+              </button>
+            </div>
+          </SpotlightPanel>
+        </aside>
+
+        <main className="pv2-content">
+          <AnimatePresence mode="wait">
+            {showSecurity ? (
+              <motion.div key="sec" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+                <SpotlightPanel className="pv2-card pv2-main-panel">
+                  <div className="pv2-panel-head">
+                    <h3>Account Security</h3>
+                    <p>Update your credentials to keep your account safe.</p>
+                  </div>
+                  <form className="pv2-sec-form" onSubmit={handleChangePassword}>
+                    <div className="pv2-input-group">
+                      <label>New Password</label>
+                      <input 
+                        type="password" 
+                        placeholder="••••••••" 
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <button type="submit" className="pv2-btn-primary">Update Password</button>
+                  </form>
+                </SpotlightPanel>
+              </motion.div>
+            ) : (
+              <motion.div key="dash" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+                {/* ADMIN DASH */}
+                {currentUser.role === 'admin' && (
+                  <SpotlightPanel className="pv2-card pv2-main-panel">
+                    <div className="pv2-panel-head">
+                      <h3>Administration Hub</h3>
+                      <p>Global system metrics and moderation tools.</p>
+                    </div>
+                    <div className="pv2-metrics-row">
+                      <div className="pv2-metric-item" onClick={() => navigate('/admin')}>
+                        <div className="pv2-m-icon orange">!</div>
+                        <div className="pv2-m-info">
+                          <span className="pv2-m-val">{pendingSpots.length}</span>
+                          <span className="pv2-m-lab">Pending Spots</span>
+                        </div>
+                      </div>
+                      <div className="pv2-metric-item" onClick={() => navigate('/admin')}>
+                        <div className="pv2-m-icon blue">✓</div>
+                        <div className="pv2-m-info">
+                          <span className="pv2-m-val">{verificationRequests.filter(r => r.status === 'pending').length}</span>
+                          <span className="pv2-m-lab">Verify Requests</span>
+                        </div>
+                      </div>
+                    </div>
+                    <button className="pv2-btn-outline full" onClick={() => navigate('/admin')}>Go to Admin Board</button>
+                  </SpotlightPanel>
+                )}
+
+                {/* MERCHANT DASH */}
+                {currentUser.role === 'merchant' && (
+                  <SpotlightPanel className="pv2-card pv2-main-panel">
+                    <div className="pv2-panel-head">
+                      <h3>Business Overview</h3>
+                      <p>Performance and data of your managed business.</p>
+                    </div>
+                    
+                    {/* Status Request Kepemilikan (Merchant Claim) */}
+                    {pendingMerchantClaim && (
+                      <div className="pv2-status-banner warning">
+                        <div className="pv2-sb-icon">⏳</div>
+                        <div className="pv2-sb-content">
+                          <strong>Request Kepemilikan Sedang Diproses</strong>
+                          <p>Klaim Anda untuk spot <strong>{pendingMerchantClaim.spotName}</strong> sedang ditinjau oleh admin.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="pv2-merchant-meta">
+                      <span>NIB: <strong>{currentUser.nib || 'N/A'}</strong></span>
+                      <span>Contact: <strong>{currentUser.phone}</strong></span>
+                    </div>
+                    {managedSpot ? (
+                      <div className="pv2-managed-spot">
+                        <img src={managedSpot.image} alt="Spot" />
+                        <div className="pv2-ms-info">
+                          <h4>{managedSpot.name}</h4>
+                          <div className="pv2-ms-stats">
+                            <span>★ {managedSpotRating}</span>
+                            <span>{managedSpot.wifiMbps} Mbps</span>
+                          </div>
+                          <button className="pv2-btn-primary" onClick={() => navigate('/contribute')}>Update Info</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="pv2-empty-state">
+                        {!pendingMerchantClaim && (
+                          <>
+                            <p>No business linked to your account yet.</p>
+                            <button className="pv2-btn-outline" onClick={() => navigate('/verify')}>Claim Business</button>
+                          </>
+                        )}
+                        {pendingMerchantClaim && <p>Tunggu verifikasi admin untuk mengelola spot Anda.</p>}
+                      </div>
+                    )}
+                  </SpotlightPanel>
+                )}
+
+                {/* STUDENT DASH */}
+                {currentUser.role === 'student' && (
+                  <SpotlightPanel className="pv2-card pv2-main-panel">
+                    <div className="pv2-panel-head">
+                      <h3>Contribution Status</h3>
+                      <p>Track your reviews and points within the community.</p>
+                    </div>
+
+                    {/* Status Request Verifikasi Identitas (Identity Verify) */}
+                    {pendingIdentityVerify && (
+                      <div className="pv2-status-banner warning">
+                        <div className="pv2-sb-icon">⏳</div>
+                        <div className="pv2-sb-content">
+                          <strong>Verifikasi Identitas Diproses</strong>
+                          <p>Dokumen <strong>{pendingIdentityVerify.docType}</strong> Anda sedang diperiksa oleh tim moderator.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="pv2-student-stats">
+                      <div className="pv2-s-bubble">
+                        <span className="pv2-sb-num">{userReviews.length}</span>
+                        <span className="pv2-sb-lab">Reviews</span>
+                      </div>
+                      <div className="pv2-s-bubble">
+                        <span className="pv2-sb-num">{userSpots.length}</span>
+                        <span className="pv2-sb-lab">Spots</span>
+                      </div>
+                    </div>
+                    {!currentUser.verified && !pendingIdentityVerify && (
+                      <div className="pv2-verify-banner">
+                        <div className="pv2-vb-text">
+                          <strong>Verify Your Account</strong>
+                          <p>Upload your Student ID card to unlock all features.</p>
+                        </div>
+                        <button className="pv2-btn-primary" onClick={() => navigate('/verify')}>Verify Now</button>
+                      </div>
+                    )}
+                  </SpotlightPanel>
+                )}
+
+                <SpotlightPanel className="pv2-card pv2-main-panel">
+                  <div className="pv2-panel-head-row">
+                    <h3>Recent Activity</h3>
+                    <button className="pv2-text-link">View All</button>
+                  </div>
+                  <div className="pv2-activity-list">
+                    {userReviews.length > 0 ? userReviews.slice(0, 3).map((r, i) => (
+                      <div key={i} className="pv2-activity-row">
+                        <div className="pv2-act-icon">★</div>
+                        <div className="pv2-act-body">
+                          <p>Rated <strong>{r.rating}★</strong> - {r.comment}</p>
+                          <span>Just now</span>
+                        </div>
+                      </div>
+                    )) : <p className="pv2-empty-txt">No activity found.</p>}
+                  </div>
+                </SpotlightPanel>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </main>
+      </div>
+    </motion.div>
+  )
+}
 
 
 function AdminPage({ state }) {
-  const { pendingSpots, verificationRequests, reports, actions } = state
+  const { users, pendingSpots, verificationRequests, reports, actions } = state
+  const pendingMerchantAccounts = users ? users.filter(u => u.status === 'pending_approval') : []
 
   return (
     <motion.section className="usecase-board" variants={pageVariants} initial="initial" animate="animate" exit="exit">
@@ -1676,6 +2204,33 @@ function AdminPage({ state }) {
         <p>Panel kendali pusat untuk verifikasi spot, user, dan laporan data.</p>
       </header>
       <motion.div className="admin-grid" variants={staggerContainer} initial="initial" animate="animate">
+        <SpotlightPanel as={motion.article} variants={staggerItem} className="admin-panel-card">
+          <h3>Persetujuan Akun Merchant</h3>
+          {pendingMerchantAccounts.length > 0 ? (
+            <ul className="admin-list">
+              {pendingMerchantAccounts.map((user) => (
+                <li key={user.id} className="admin-request-item">
+                  <div className="admin-request-info">
+                    <strong>{user.name}</strong>
+                    <p className="id-details">{user.email} | {user.phone}</p>
+                    {user.nib && <p className="admin-nib-display">NIB: <span>{user.nib}</span></p>}
+                  </div>
+                  <div className="admin-actions">
+                    <button type="button" className="inline-btn" onClick={() => actions.approveMerchantAccount(user.id)}>
+                      Setujui
+                    </button>
+                    <button type="button" className="inline-btn danger" onClick={() => actions.rejectMerchantAccount(user.id)}>
+                      Tolak
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="empty-msg">Tidak ada pendaftaran akun baru.</p>
+          )}
+        </SpotlightPanel>
+
         <SpotlightPanel as={motion.article} variants={staggerItem}>
           <h3>Pending Spot</h3>
           {pendingSpots.length > 0 ? (
@@ -1708,12 +2263,30 @@ function AdminPage({ state }) {
           {verificationRequests.length > 0 ? (
             <ul>
               {verificationRequests.map((request) => (
-                <li key={request.id}>
-                  <span>
-                    {request.userName} - {request.docType} ({request.status})
-                  </span>
+                <li key={request.id} className="admin-request-item">
+                  <div className="admin-request-info">
+                    <div className="admin-request-header">
+                      <strong>{request.userName}</strong>
+                      <span className={`request-type-pill ${request.type}`}>{request.type === 'merchant_claim' ? 'Merchant' : 'Identity'}</span>
+                      <span className={`status-small status-${request.status}`}>{request.status}</span>
+                    </div>
+                    {request.type === 'merchant_claim' ? (
+                      <div className="merchant-claim-details">
+                        <p>Klaim Spot: <strong>{request.spotName}</strong></p>
+                        {request.proofLink && (
+                          <a href={request.proofLink} target="_blank" rel="noopener noreferrer" className="proof-link">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                            Buka Bukti Dokumen
+                          </a>
+                        )}
+                        {request.message && <p className="request-msg">"{request.message}"</p>}
+                      </div>
+                    ) : (
+                      <p className="id-details">{request.docType}: {request.docNumber}</p>
+                    )}
+                  </div>
                   {request.status === 'pending' ? (
-                    <div>
+                    <div className="admin-actions">
                       <button
                         type="button"
                         className="inline-btn"
