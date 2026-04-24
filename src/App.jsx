@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams, Link } from 'react-router-dom'
 import { AnimatePresence, motion, useMotionValue, useMotionTemplate, useSpring, useTransform } from 'framer-motion'
 import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMapEvents } from 'react-leaflet'
@@ -148,13 +148,17 @@ const AuthOrb = ({ index, x, y }) => {
   )
 }
 
+const getDeterministicValue = (seed) => {
+  const value = Math.sin(seed * 12.9898) * 43758.5453
+  return value - Math.floor(value)
+}
+
 const AuthPixel = ({ index, x }) => {
-  // Use stable random values
-  const randomLeft = useMemo(() => Math.random() * 100, [])
-  const randomDuration = useMemo(() => 5 + Math.random() * 5, [])
-  const randomDelay = useMemo(() => Math.random() * 5, [])
-  const randomWeight = useMemo(() => 0.1 + Math.random() * 0.2, [])
-  const randomSize = useMemo(() => 4 + Math.random() * 6, [])
+  const randomLeft = getDeterministicValue(index + 1) * 100
+  const randomDuration = 5 + getDeterministicValue(index + 11) * 5
+  const randomDelay = getDeterministicValue(index + 21) * 5
+  const randomWeight = 0.1 + getDeterministicValue(index + 31) * 0.2
+  const randomSize = 4 + getDeterministicValue(index + 41) * 6
 
   const tx = useTransform(x, (val) => val * randomWeight)
 
@@ -875,7 +879,7 @@ function AnimatedRoutes({ appState }) {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<HomePage state={appState} />} />
+        <Route path="/" element={<HomePage />} />
         <Route path="/explore" element={<ExplorePage state={appState} />} />
         <Route path="/spot/:id" element={<SpotDetailPage state={appState} />} />
         <Route path="/contribute" element={<ContributePage state={appState} />} />
@@ -933,7 +937,7 @@ function SpotlightPanel({ children, className = "", as = "div", ...props }) {
   )
 }
 
-function HomePage({ state }) {
+function HomePage() {
   const navigate = useNavigate()
 
   return (
@@ -987,7 +991,7 @@ function HomePage({ state }) {
 }
 
 function ExplorePage({ state }) {
-  const { filteredSpots, filters, permissions, actions } = state
+  const { filteredSpots, filters } = state
   const { maxBudget, setMaxBudget, minWifi, setMinWifi, minSockets, setMinSockets } = filters
   const navigate = useNavigate()
 
@@ -1123,17 +1127,26 @@ function ExplorePage({ state }) {
             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           />
           {filteredSpots.map((spot) => (
-            <Marker key={spot.id} position={[spot.lat, spot.lng]} icon={aestheticMarkerIcon}>
-              <Tooltip direction="top" offset={[0, -10]} opacity={1} className="aesthetic-map-tooltip">
+            <Marker 
+              key={spot.id} 
+              position={[spot.lat, spot.lng]} 
+              icon={aestheticMarkerIcon}
+              eventHandlers={{
+                mouseover: (e) => {
+                  e.target.openPopup();
+                },
+              }}
+            >
+              <Popup className="aesthetic-map-popup" maxWidth={280} minWidth={240} closeButton={false}>
                 <div className="tooltip-content">
                   <div className="tooltip-image" style={{ backgroundImage: `url(${spot.image})` }}></div>
                   <div className="tooltip-details">
                     <h4>{spot.name}</h4>
                     <p className="tooltip-price">Rp {spot.budget.toLocaleString('id-ID')}</p>
-                    <button className="tooltip-link-btn" onClick={(e) => { e.stopPropagation(); navigate(`/spot/${spot.id}`); }}>Lihat Detail</button>
+                    <Link to={`/spot/${spot.id}`} className="tooltip-link-btn">Lihat Detail</Link>
                   </div>
                 </div>
-              </Tooltip>
+              </Popup>
             </Marker>
           ))}
         </MapContainer>
@@ -1142,17 +1155,17 @@ function ExplorePage({ state }) {
   )
 }
 
+function LocationMarker({ position, onChange }) {
+  useMapEvents({
+    click(e) {
+      onChange(e.latlng.lat, e.latlng.lng)
+    },
+  })
+  return <Marker position={position} icon={aestheticMarkerIcon} />
+}
+
 function LocationPickerMap({ lat, lng, onChange }) {
   const position = [lat || -7.9666, lng || 112.6326]
-
-  function LocationMarker() {
-    useMapEvents({
-      click(e) {
-        onChange(e.latlng.lat, e.latlng.lng)
-      },
-    })
-    return <Marker position={position} icon={aestheticMarkerIcon} />
-  }
 
   return (
     <div style={{ position: 'relative', height: '250px', width: '100%', borderRadius: '10px', overflow: 'hidden', border: '1px solid #b8cad3', marginBottom: '8px', zIndex: 1 }}>
@@ -1161,14 +1174,14 @@ function LocationPickerMap({ lat, lng, onChange }) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
-        <LocationMarker />
+        <LocationMarker position={position} onChange={onChange} />
       </MapContainer>
     </div>
   )
 }
 
 function ContributePage({ state }) {
-  const { approvedSpots, controlledMerchantSpots, forms, actions, permissions } = state
+  const { currentUser, approvedSpots, controlledMerchantSpots, forms, actions, permissions } = state
   const {
     newSpot,
     setNewSpot,
@@ -1184,6 +1197,8 @@ function ContributePage({ state }) {
   } = forms
 
   const currentMerchantSpot = controlledMerchantSpots.find((s) => s.id === selectedMerchantSpotId)
+
+  const showMerchantPanel = currentUser?.role === 'merchant' || currentUser?.role === 'admin'
 
   return (
     <motion.section className="workflow-block" variants={pageVariants} initial="initial" animate="animate" exit="exit">
@@ -1352,71 +1367,73 @@ function ContributePage({ state }) {
           </button>
         </SpotlightPanel>
 
-        <SpotlightPanel as="form" onSubmit={actions.handleMerchantUpdate} className="form-panel">
-          <h3>Merchant Update Spot</h3>
-          <p className="form-subtitle">Merchant hanya bisa edit spot miliknya.</p>
-          <div className="form-field">
-            <label>Pilih Spot Anda</label>
-            <select
-              value={selectedMerchantSpotId ?? ''}
-              onChange={(event) => {
-                const spotId = Number(event.target.value)
-                const spotData = controlledMerchantSpots.find((s) => s.id === spotId)
-                if (spotData) {
-                  setMerchantEdit({
-                    spotId,
-                    menu: spotData.menu || '',
-                    facilities: spotData.facilities || '',
-                    operationalHours: spotData.operationalHours || '',
-                  })
-                } else {
-                  setMerchantEdit((prev) => ({ ...prev, spotId }))
-                }
-              }}
-              disabled={controlledMerchantSpots.length === 0}
+        {showMerchantPanel && (
+          <SpotlightPanel as="form" onSubmit={actions.handleMerchantUpdate} className="form-panel">
+            <h3>Merchant Update Spot</h3>
+            <p className="form-subtitle">Merchant hanya bisa edit spot miliknya.</p>
+            <div className="form-field">
+              <label>Pilih Spot Anda</label>
+              <select
+                value={selectedMerchantSpotId ?? ''}
+                onChange={(event) => {
+                  const spotId = Number(event.target.value)
+                  const spotData = controlledMerchantSpots.find((s) => s.id === spotId)
+                  if (spotData) {
+                    setMerchantEdit({
+                      spotId,
+                      menu: spotData.menu || '',
+                      facilities: spotData.facilities || '',
+                      operationalHours: spotData.operationalHours || '',
+                    })
+                  } else {
+                    setMerchantEdit((prev) => ({ ...prev, spotId }))
+                  }
+                }}
+                disabled={controlledMerchantSpots.length === 0}
+              >
+                {controlledMerchantSpots.map((spot) => (
+                  <option key={spot.id} value={spot.id}>{spot.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Update Menu</label>
+              <input
+                type="text"
+                placeholder={currentMerchantSpot?.menu || "Menu terbaru"}
+                value={merchantEdit.menu}
+                onChange={(event) => setMerchantEdit((prev) => ({ ...prev, menu: event.target.value }))}
+              />
+            </div>
+            <div className="form-group-grid">
+              <div className="form-field">
+                <label>Update Fasilitas</label>
+                <input
+                  type="text"
+                  placeholder={currentMerchantSpot?.facilities || "Fasilitas terbaru"}
+                  value={merchantEdit.facilities}
+                  onChange={(event) => setMerchantEdit((prev) => ({ ...prev, facilities: event.target.value }))}
+                />
+              </div>
+              <div className="form-field">
+                <label>Update Jam</label>
+                <input
+                  type="text"
+                  placeholder={currentMerchantSpot?.operationalHours || "Jam operasional terbaru"}
+                  value={merchantEdit.operationalHours}
+                  onChange={(event) => setMerchantEdit((prev) => ({ ...prev, operationalHours: event.target.value }))}
+                />
+              </div>
+            </div>
+            <button
+              type="submit"
+              className="btn btn-primary submit-spot-btn"
+              disabled={!permissions.canUseMerchantPanel || controlledMerchantSpots.length === 0}
             >
-              {controlledMerchantSpots.map((spot) => (
-                <option key={spot.id} value={spot.id}>{spot.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-field">
-            <label>Update Menu</label>
-            <input
-              type="text"
-              placeholder={currentMerchantSpot?.menu || "Menu terbaru"}
-              value={merchantEdit.menu}
-              onChange={(event) => setMerchantEdit((prev) => ({ ...prev, menu: event.target.value }))}
-            />
-          </div>
-          <div className="form-group-grid">
-            <div className="form-field">
-              <label>Update Fasilitas</label>
-              <input
-                type="text"
-                placeholder={currentMerchantSpot?.facilities || "Fasilitas terbaru"}
-                value={merchantEdit.facilities}
-                onChange={(event) => setMerchantEdit((prev) => ({ ...prev, facilities: event.target.value }))}
-              />
-            </div>
-            <div className="form-field">
-              <label>Update Jam</label>
-              <input
-                type="text"
-                placeholder={currentMerchantSpot?.operationalHours || "Jam operasional terbaru"}
-                value={merchantEdit.operationalHours}
-                onChange={(event) => setMerchantEdit((prev) => ({ ...prev, operationalHours: event.target.value }))}
-              />
-            </div>
-          </div>
-          <button
-            type="submit"
-            className="btn btn-primary submit-spot-btn"
-            disabled={!permissions.canUseMerchantPanel || controlledMerchantSpots.length === 0}
-          >
-            Simpan Update
-          </button>
-        </SpotlightPanel>
+              Simpan Update
+            </button>
+          </SpotlightPanel>
+        )}
       </div>
     </motion.section>
   )

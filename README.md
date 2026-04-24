@@ -36,11 +36,13 @@ npm.cmd run preview
 
 ## Akun Demo Cepat
 
-- Admin: nama `Admin NHS`, role `admin`
-- Student verified: nama `Marsel`, role `student`
-- Merchant: nama `Merchant Mie Gacoan`, role `merchant`
+- Admin: username `Admin NHS`, password `admin123`
+- Student verified: username `Marsel`, password `marsel123`
+- Merchant: username `Merchant Mie Gacoan`, password `merchant123`
 
-Catatan: Login menggunakan nama + role di form login. Jika nama baru belum ada, sistem otomatis membuat akun.
+Catatan:
+- Login menggunakan username/email + password.
+- Jika belum punya akun, gunakan mode Register lalu pilih role pada form registrasi.
 
 ## Tahap Selanjutnya
 
