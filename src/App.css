@@ -3,6 +3,29 @@
   --font-body: 'Inter', sans-serif;
 }
 
+.global-loader {
+  position: fixed;
+  inset: 0;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  font-family: var(--font-heading);
+  color: #0c8a60;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.global-loader span {
+  animation: pulse-load 2s infinite ease-in-out;
+}
+
+@keyframes pulse-load {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.98); }
+}
+
 .page-shell {
   max-width: 1220px;
   margin: 0 auto;
@@ -99,10 +122,37 @@
 .bg-noise {
   position: absolute;
   inset: 0;
-  z-index: 2;
-  opacity: 0.03;
+  background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+  opacity: 0.05;
   pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  z-index: 2;
+}
+
+.floating-shape {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.4;
+  pointer-events: none;
+  mix-blend-mode: soft-light;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+}
+
+.floating-shape {
+  animation: float 25s infinite ease-in-out;
+}
+
+.ag-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.7;
 }
 
 .auth-card-wrap {
