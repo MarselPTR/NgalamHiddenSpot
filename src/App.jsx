@@ -13,6 +13,32 @@ import { BackgroundDecor } from './components/BackgroundDecor'
 import { AuthBackground } from './components/AuthEffects'
 import { MerchantPendingScreen } from './components/MerchantPendingScreen'
 
+function Toast({ message, type = 'info', onClear }) {
+  useEffect(() => {
+    const timer = setTimeout(onClear, 4000)
+    return () => clearTimeout(timer)
+  }, [onClear])
+
+  const icons = {
+    success: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
+    error: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>,
+    info: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 50, scale: 0.9, x: '-50%' }}
+      animate={{ opacity: 1, y: 0, scale: 1, x: '-50%' }}
+      exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
+      className={`toast-notification toast-${type}`}
+    >
+      <div className="toast-icon">{icons[type]}</div>
+      <div className="toast-message">{message}</div>
+      <button onClick={onClear} className="toast-close">&times;</button>
+    </motion.div>
+  )
+}
+
 // Pages
 import { HomePage } from './pages/HomePage'
 import { ExplorePage } from './pages/ExplorePage'
@@ -53,6 +79,13 @@ function App() {
   const [activeUserId, setActiveUserId] = useState(null)
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [toasts, setToasts] = useState([])
+
+  const showToast = (message, type = 'info') => {
+    const id = Date.now()
+    setToasts(prev => [...prev, { id, message, type }])
+  }
+  const clearToast = (id) => setToasts(prev => prev.filter(t => t.id !== id))
 
   const [authMode, setAuthMode] = useState('login')
   const [loginName, setLoginName] = useState('')
@@ -192,19 +225,24 @@ function App() {
   // AUTO-INITIALIZE MERCHANT SPOT
   useEffect(() => {
     if (currentUser && currentUser.role === 'merchant' && spots.length > 0) {
-      const mySpot = spots.find(s => s.owner_id === currentUser.id)
-      if (mySpot && !merchantEdit.spotId) {
-        console.log('--- AUTO-LOCK: Mendeteksi Merchant, mengunci ke spot:', mySpot.name, '---')
-        setMerchantEdit({
-          spotId: mySpot.id,
-          menu: mySpot.menu || '',
-          facilities: mySpot.facilities || '',
-          operationalHours: mySpot.operationalHours || '',
-          wifiMbps: mySpot.wifiMbps || 0,
-          sockets: mySpot.sockets || 0,
-          image: mySpot.image || '',
-          imageFile: null
-        })
+      const mySpot = spots.find(s => s.ownerId === currentUser.id)
+      if (mySpot && (!merchantEdit.spotId || merchantEdit.spotId === mySpot.id)) {
+        // Update fields if they are different from what's in the DB to ensure sync
+        if (mySpot.id !== merchantEdit.spotId || 
+            mySpot.menu !== merchantEdit.menu || 
+            mySpot.facilities !== merchantEdit.facilities) {
+          setMerchantEdit({
+            spotId: mySpot.id,
+            menu: mySpot.menu || '',
+            facilities: mySpot.facilities || '',
+            operationalHours: mySpot.operationalHours || '',
+            address: mySpot.address || '',
+            wifiMbps: mySpot.wifiMbps || 0,
+            sockets: mySpot.sockets || 0,
+            image: mySpot.image || '',
+            imageFile: null
+          })
+        }
       }
     }
   }, [currentUser, spots, merchantEdit.spotId])
@@ -233,7 +271,7 @@ function App() {
   const controlledMerchantSpots = spots.filter((spot) => {
     if (!currentUser) return false
     if (currentUser.role === 'admin') return true
-    return spot.owner_id === currentUser.id
+    return spot.ownerId === currentUser.id
   })
 
   const selectedReviewSpotId = approvedSpots.some((spot) => spot.id === reviewForm.spotId)
@@ -292,7 +330,7 @@ function App() {
         const { data: profiles } = await supabase.from('profiles').select('*')
         if (profiles) setUsers(profiles)
 
-        window.alert('Login berhasil!')
+        showToast('Login berhasil!', 'success')
       } else {
         // Register with Supabase Auth
         const { data, error } = await supabase.auth.signUp({
@@ -311,38 +349,38 @@ function App() {
         if (error) throw error
 
         if (data?.user) {
-          // PAKSA SIMPAN KE TABEL PROFILES SEGERA DENGAN DATA LENGKAP
           const newProfile = {
             id: data.user.id,
             name: cleanName,
             email: registerEmail.trim(),
             phone: registerPhone.trim(),
-            nib: registerNIB.trim(),
+            nib: loginRole === 'merchant' ? registerNIB.trim() : null,
             role: loginRole,
             status: loginRole === 'merchant' ? 'pending' : 'active',
             verified: false,
             created_at: new Date().toISOString()
           }
           
-          console.log('MENYIMPAN PROFIL MERCHANT KE DATABASE:', newProfile)
-          const { error: insertError } = await supabase.from('profiles').insert([newProfile])
+          console.log('Mencoba menyimpan/update profil ke Supabase Profiles:', newProfile)
+          const { error: insertError } = await supabase.from('profiles').upsert([newProfile])
           
           if (insertError) {
-            console.error('GAGAL SIMPAN PROFIL:', insertError.message)
+            console.error('GAGAL INSERT KE PROFILES:', insertError.message)
+            showToast(`Akun dibuat, tapi gagal menyimpan data profil: ${insertError.message}`, 'error')
           } else {
             console.log('PROFIL BERHASIL DISIMPAN!')
             setUsers(prev => [...prev, newProfile])
-          }
-
-          if (loginRole === 'merchant') {
-            setShowMerchantPending(true)
-          } else {
-            window.alert('Registrasi berhasil! Silakan cek email Anda atau langsung login.')
+            
+            if (loginRole === 'merchant') {
+              setShowMerchantPending(true)
+            } else {
+              showToast('Registrasi berhasil! Silakan cek email Anda untuk verifikasi atau langsung login.', 'success')
+            }
           }
         }
       }
     } catch (err) {
-      window.alert(`Gagal: ${err.message}`)
+      showToast(`Gagal: ${err.message}`, 'error')
     } finally {
       setLoading(false)
       setLoginName('')
@@ -388,7 +426,7 @@ function App() {
     console.log('--- Memulai Proses Pendaftaran Spot ---')
 
     if (!currentUser) {
-      window.alert('Sesi login tidak ditemukan. Silakan login kembali.')
+      showToast('Sesi login tidak ditemukan. Silakan login kembali.', 'error')
       return
     }
 
@@ -396,7 +434,7 @@ function App() {
       const msg = currentUser.role === 'student'
         ? 'Sebagai Student, Anda wajib melakukan verifikasi identitas (KTM) di menu Verify sebelum bisa mendaftarkan spot baru.'
         : 'Akun Anda belum memiliki izin untuk mendaftarkan spot baru.'
-      window.alert(msg)
+      showToast(msg, 'info')
       return
     }
 
@@ -450,11 +488,11 @@ function App() {
           vibe: 'Modern', lat: -7.9839, lng: 112.6214, image: '', imageFile: null,
           menu: '', facilities: '', operationalHours: ''
         })
-        window.alert('Berhasil! Spot Anda telah terkirim dan sedang menunggu review Admin.')
+        showToast('Berhasil! Spot Anda telah terkirim dan sedang menunggu review Admin.', 'success')
       }
     } catch (err) {
       console.error('Error saat daftar spot:', err.message)
-      window.alert(`Gagal: ${err.message}`)
+      showToast(`Gagal: ${err.message}`, 'error')
     } finally {
       setLoading(false)
       console.log('--- Selesai Proses Pendaftaran Spot ---')
@@ -487,11 +525,11 @@ function App() {
 
     if (error) {
       console.error('DETAIL ERROR SUPABASE:', error)
-      window.alert(`Gagal mengirim verifikasi: ${error.message}`)
+      showToast(`Gagal mengirim verifikasi: ${error.message}`, 'error')
     } else if (data) {
       setVerificationRequests((prev) => [...data, ...prev])
       setVerificationForm({ docType: 'KTM', docNumber: '', docFile: null })
-      window.alert('Request verifikasi KTM telah dikirim!')
+      showToast('Request verifikasi KTM telah dikirim!', 'success')
     }
     setLoading(false)
   }
@@ -514,7 +552,7 @@ function App() {
     }
 
     if (!docUrl) {
-      window.alert('Mohon lampirkan bukti kepemilikan bisnis (Foto NIB/Izin).')
+      showToast('Mohon lampirkan bukti kepemilikan bisnis (Foto NIB/Izin).', 'error')
       setLoading(false)
       return
     }
@@ -535,11 +573,11 @@ function App() {
     
     if (error) {
       console.error('ERROR KLAIM MERCHANT:', error)
-      window.alert(`Gagal mengirim klaim: ${error.message}`)
+      showToast(`Gagal mengirim klaim: ${error.message}`, 'error')
     } else if (data) {
       setVerificationRequests((prev) => [...data, ...prev])
       setMerchantVerifyForm({ spotId: '', proofLink: '', proofFile: null, message: '' })
-      window.alert('Request verifikasi kepemilikan merchant telah dikirim! Mohon tunggu review Admin.')
+      showToast('Request verifikasi kepemilikan merchant telah dikirim! Mohon tunggu review Admin.', 'info')
     }
     setLoading(false)
   }
@@ -549,12 +587,12 @@ function App() {
     console.log('--- Memulai Proses Pengiriman Review ---')
 
     if (!currentUser) {
-      window.alert('Anda harus login untuk memberikan ulasan.')
+      showToast('Anda harus login untuk memberikan ulasan.', 'error')
       return
     }
 
     if (!canPostReview) {
-      window.alert('Akun Anda belum terverifikasi sebagai Student. Silakan upload KTM di menu Verify.')
+      showToast('Akun Anda belum terverifikasi sebagai Student. Silakan upload KTM di menu Verify.', 'error')
       return
     }
 
@@ -591,11 +629,11 @@ function App() {
         } : s))
 
         setReviewForm({ spotId: reviewData.spot_id, rating: 5, comment: '' })
-        window.alert('Terima kasih! Ulasan Anda telah dipublikasikan.')
+        showToast('Terima kasih! Ulasan Anda telah dipublikasikan.', 'success')
       }
     } catch (err) {
       console.error('Error review:', err.message)
-      window.alert(`Gagal mengirim review: ${err.message}`)
+      showToast(`Gagal mengirim review: ${err.message}`, 'error')
     } finally {
       setLoading(false)
       console.log('--- Selesai Proses Pengiriman Review ---')
@@ -609,7 +647,7 @@ function App() {
     setLoading(true)
     const targetSpotId = Number(reportForm.spotId)
     if (!targetSpotId) {
-      window.alert('Mohon pilih spot terlebih dahulu.')
+      showToast('Mohon pilih spot terlebih dahulu.', 'error')
       setLoading(false)
       return
     }
@@ -635,11 +673,11 @@ function App() {
         console.log('Laporan berhasil disimpan:', data)
         setReports((prev) => [...data, ...prev])
         setReportForm((prev) => ({ ...prev, reason: '' }))
-        window.alert('Terima kasih! Laporan Anda telah terkirim ke Admin.')
+        showToast('Terima kasih! Laporan Anda telah terkirim ke Admin.', 'info')
       }
     } catch (err) {
       console.error('Error report:', err.message)
-      window.alert(`Gagal mengirim laporan: ${err.message}`)
+      showToast(`Gagal mengirim laporan: ${err.message}`, 'error')
     } finally {
       setLoading(false)
     }
@@ -689,10 +727,11 @@ function App() {
             : spot
         )
       )
-      window.alert(currentUser.role === 'admin' ? 'Spot berhasil diperbarui oleh Admin!' : 'Data bisnis Anda berhasil diperbarui!')
+      await fetchData()
+      showToast(currentUser.role === 'admin' ? 'Spot berhasil diperbarui oleh Admin!' : 'Data bisnis Anda berhasil diperbarui!', 'success')
     } catch (err) {
       console.error('Gagal update merchant:', err.message)
-      window.alert(`Gagal update: ${err.message}`)
+      showToast(`Gagal update: ${err.message}`, 'error')
     }
     setLoading(false)
   }
@@ -712,26 +751,36 @@ function App() {
 
     if (profileError) {
       console.error('Gagal update profil user:', profileError.message)
-      window.alert('Gagal mengupdate profil user di database. Cek izin RLS Anda.')
+      showToast('Gagal mengupdate profil user di database. Cek izin RLS Anda.', 'error')
       setLoading(false)
       return
     }
 
     // 3. Update Spot Owner if claim
     if (request?.type === 'merchant_claim' && request.spot_id) {
+      console.log('Mendaftarkan kepemilikan spot untuk Merchant...')
       await supabase.from('spots').update({ owner_id: userId }).eq('id', request.spot_id)
     }
 
-    // Update Local State Segera agar tidak perlu refresh
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, verified: true, role: request?.type === 'merchant_claim' ? 'merchant' : 'student' } : u))
+    // Update Local State Segera
+    setUsers(prev => prev.map(u => u.id === userId ? { 
+      ...u, 
+      verified: true, 
+      role: request?.type === 'merchant_claim' ? 'merchant' : u.role 
+    } : u))
+    
+    // Update role di database profile secara eksplisit jika ini klaim merchant
+    if (request?.type === 'merchant_claim') {
+      await supabase.from('profiles').update({ role: 'merchant', verified: true }).eq('id', userId)
+    } else {
+      await supabase.from('profiles').update({ verified: true }).eq('id', userId)
+    }
+    
     setVerificationRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'approved' } : r))
 
-    // Refresh Data
-    const { data: profiles } = await supabase.from('profiles').select('*')
-    if (profiles) setUsers(profiles)
-    const { data: verifs } = await supabase.from('verification_requests').select('*')
-    if (verifs) setVerificationRequests(verifs)
-
+    // Pemicu sinkronisasi data global
+    await fetchData()
+    showToast('Verifikasi berhasil disetujui!', 'success')
     setLoading(false)
   }
 
@@ -753,10 +802,10 @@ function App() {
 
     if (error) {
       console.error('Gagal approve spot:', error.message)
-      window.alert(`Gagal menyimpan ke database: ${error.message}. Pastikan RLS Policy UPDATE sudah aktif.`)
+      showToast(`Gagal menyimpan ke database: ${error.message}. Pastikan RLS Policy UPDATE sudah aktif.`, 'error')
     } else {
       setSpots(prev => prev.map(s => s.id === spotId ? { ...s, status: 'approved' } : s))
-      window.alert('Spot berhasil disetujui!')
+      showToast('Spot berhasil disetujui!', 'success')
     }
     setLoading(false)
   }
@@ -772,10 +821,10 @@ function App() {
 
     if (error) {
       console.error('Gagal hapus spot:', error.message)
-      window.alert(`Gagal menghapus dari database: ${error.message}`)
+      showToast(`Gagal menghapus dari database: ${error.message}`, 'error')
     } else {
       setSpots(prev => prev.filter(s => s.id !== spotId))
-      window.alert('Spot telah dihapus.')
+      showToast('Spot telah dihapus.', 'info')
     }
     setLoading(false)
   }
@@ -804,7 +853,7 @@ function App() {
       console.log('Profil berhasil diperbarui!')
     } catch (err) {
       console.error('Gagal update profil:', err.message)
-      window.alert(`Gagal memperbarui profil: ${err.message}`)
+      showToast(`Gagal memperbarui profil: ${err.message}`, 'error')
     } finally {
       setLoading(false)
     }
@@ -874,18 +923,17 @@ function App() {
                       : 'Daftar dan mulai berkontribusi untuk komunitas mahasiswa Malang.'}
                   </p>
                 </header>
-
                 <div className="auth-mode-toggle">
                   <button
                     type="button"
-                    className={`auth-toggle-btn ${authMode === 'login' ? 'active' : ''}`}
+                    className={`auth-toggle-tab ${authMode === 'login' ? 'active' : ''}`}
                     onClick={() => setAuthMode('login')}
                   >
                     Login
                   </button>
                   <button
                     type="button"
-                    className={`auth-toggle-btn ${authMode === 'register' ? 'active' : ''}`}
+                    className={`auth-toggle-tab ${authMode === 'register' ? 'active' : ''}`}
                     onClick={() => setAuthMode('register')}
                   >
                     Register
@@ -1007,12 +1055,11 @@ function App() {
                 </form>
 
                 <div className="auth-footer">
-                  <p>Coba gunakan akun demo:</p>
-                  <div className="demo-chips">
-                    <button type="button" onClick={() => { setLoginName('Admin NHS'); setLoginPassword('admin123') }}>Admin</button>
-                    <button type="button" onClick={() => { setLoginName('Marsel'); setLoginPassword('marsel123') }}>Student</button>
-                    <button type="button" onClick={() => { setLoginName('Merchant Mie Gacoan'); setLoginPassword('merchant123') }}>Merchant</button>
-                  </div>
+                  {authMode === 'login' ? (
+                    <p>Belum punya akun? <button type="button" className="auth-toggle-btn" onClick={() => setAuthMode('register')}>Daftar di sini</button></p>
+                  ) : (
+                    <p>Sudah punya akun? <button type="button" className="auth-toggle-btn" onClick={() => setAuthMode('login')}>Masuk di sini</button></p>
+                  )}
                 </div>
               </SpotlightPanel>
             </motion.div>
@@ -1079,6 +1126,7 @@ function App() {
       rejectMerchantAccount,
       updateUser,
       refreshData: fetchData,
+      notify: showToast,
       handleSelectMerchantSpot: (spotId) => {
         const spot = spots.find(s => s.id === Number(spotId))
         if (spot) {
@@ -1149,6 +1197,11 @@ function App() {
           </p>
           <p className="tagline">Exclusive Local Discovery for Malang Raya</p>
         </footer>
+        <AnimatePresence>
+          {toasts.map(t => (
+            <Toast key={t.id} {...t} onClear={() => clearToast(t.id)} />
+          ))}
+        </AnimatePresence>
       </div>
     </BrowserRouter>
   )

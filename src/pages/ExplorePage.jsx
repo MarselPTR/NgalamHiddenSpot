@@ -186,7 +186,26 @@ export function ExplorePage({ state }) {
                   <div className="tooltip-details">
                     <h4>{spot.name}</h4>
                     <p className="tooltip-price">Rp {spot.budget.toLocaleString('id-ID')}</p>
-                    <Link to={`/spot/${spot.id}`} className="tooltip-link-btn">Lihat Detail</Link>
+                    
+                    <div className="tooltip-stats-grid">
+                      <div className="stat-pill-mini">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path></svg>
+                        <span>{spot.wifiMbps} Mbps</span>
+                      </div>
+                      <div className="stat-pill-mini">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22v-5"></path><path d="M9 8V2"></path><path d="M15 8V2"></path><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"></path></svg>
+                        <span>{spot.sockets} Sockets</span>
+                      </div>
+                      <div className="stat-pill-mini full-width">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        <span>Open: {spot.operationalHours}</span>
+                      </div>
+                    </div>
+
+                    <Link to={`/spot/${spot.id}`} className="tooltip-link-btn">
+                      View Details
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '4px' }}><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </Link>
                   </div>
                 </div>
               </Popup>

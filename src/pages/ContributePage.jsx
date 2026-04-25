@@ -261,7 +261,7 @@ export function ContributePage({ state }) {
                 <input
                   type="number"
                   value={merchantEdit.wifiMbps}
-                  onChange={(e) => setMerchantEdit({ ...merchantEdit, wifiMbps: e.target.value })}
+                  onChange={(e) => setMerchantEdit(prev => ({ ...prev, wifiMbps: e.target.value }))}
                 />
               </div>
               <div className="form-field">
@@ -269,7 +269,7 @@ export function ContributePage({ state }) {
                 <input
                   type="number"
                   value={merchantEdit.sockets}
-                  onChange={(e) => setMerchantEdit({ ...merchantEdit, sockets: e.target.value })}
+                  onChange={(e) => setMerchantEdit(prev => ({ ...prev, sockets: e.target.value }))}
                 />
               </div>
             </div>

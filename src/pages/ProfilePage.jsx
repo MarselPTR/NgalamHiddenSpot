@@ -40,13 +40,13 @@ export function ProfilePage({ state }) {
   const handleChangePassword = (e) => {
     e.preventDefault()
     if (newPassword.length < 6) {
-      alert('Password minimal 6 karakter.')
+      state.actions.notify('Password minimal 6 karakter.', 'error')
       return
     }
     state.actions.updateUser(currentUser.id, { password: newPassword })
     setNewPassword('')
     setShowSecurity(false)
-    alert('Password berhasil diubah!')
+    state.actions.notify('Password berhasil diubah!', 'success')
   }
 
   return (
@@ -165,7 +165,7 @@ export function ProfilePage({ state }) {
                   <form className="pv2-sec-form" onSubmit={(e) => {
                     e.preventDefault()
                     state.actions.updateUser(currentUser.id, { phone: e.target.phone.value })
-                    alert('Nomor telepon diperbarui!')
+                    state.actions.notify('Nomor telepon diperbarui!', 'success')
                   }}>
                     <div className="pv2-input-group">
                       <label>Phone Number</label>
@@ -179,6 +179,26 @@ export function ProfilePage({ state }) {
                     </div>
                     <button type="submit" className="pv2-btn-primary">Update Phone Number</button>
                   </form>
+
+                  {currentUser.role === 'merchant' && (
+                    <form className="pv2-sec-form" style={{ marginTop: '20px' }} onSubmit={(e) => {
+                      e.preventDefault()
+                      state.actions.updateUser(currentUser.id, { nib: e.target.nib.value })
+                      state.actions.notify('Nomor NIB berhasil diperbarui!', 'success')
+                    }}>
+                      <div className="pv2-input-group">
+                        <label>Nomor NIB (Induk Berusaha)</label>
+                        <input 
+                          name="nib"
+                          type="text" 
+                          defaultValue={currentUser.nib || ''}
+                          placeholder="Masukkan 13 digit NIB..."
+                          required
+                        />
+                      </div>
+                      <button type="submit" className="pv2-btn-primary">Update NIB</button>
+                    </form>
+                  )}
                 </SpotlightPanel>
               </motion.div>
             ) : (
